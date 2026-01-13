@@ -12,10 +12,29 @@ void main() async {
   runApp(QslCardGeneratorApp(storageService: storageService));
 }
 
-class QslCardGeneratorApp extends StatelessWidget {
+class QslCardGeneratorApp extends StatefulWidget {
   final StorageService storageService;
 
   const QslCardGeneratorApp({super.key, required this.storageService});
+
+  @override
+  State<QslCardGeneratorApp> createState() => _QslCardGeneratorAppState();
+}
+
+class _QslCardGeneratorAppState extends State<QslCardGeneratorApp> {
+  late bool _setupComplete;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupComplete = widget.storageService.isSetupComplete();
+  }
+
+  void _onSetupComplete() {
+    setState(() {
+      _setupComplete = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +48,12 @@ class QslCardGeneratorApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: GeneratorScreen(storageService: storageService),
+      home: _setupComplete
+          ? GeneratorScreen(storageService: widget.storageService)
+          : SetupScreen(
+              storageService: widget.storageService,
+              onSetupComplete: _onSetupComplete,
+            ),
     );
   }
 }

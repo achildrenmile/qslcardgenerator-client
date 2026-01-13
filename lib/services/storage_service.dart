@@ -7,6 +7,7 @@ import '../models/models.dart';
 class StorageService {
   static const String _configKey = 'card_configs';
   static const String _activeConfigKey = 'active_config_id';
+  static const String _setupCompleteKey = 'setup_complete';
 
   late SharedPreferences _prefs;
   late Directory _appDir;
@@ -130,5 +131,35 @@ class StorageService {
   bool _isImageFile(String path) {
     final ext = path.toLowerCase().split('.').last;
     return ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+  }
+
+  // Setup Management
+  bool isSetupComplete() {
+    return _prefs.getBool(_setupCompleteKey) ?? false;
+  }
+
+  Future<void> setSetupComplete(bool complete) async {
+    await _prefs.setBool(_setupCompleteKey, complete);
+  }
+
+  Future<void> resetSetup() async {
+    await _prefs.remove(_setupCompleteKey);
+    await _prefs.remove(_configKey);
+    await _prefs.remove(_activeConfigKey);
+  }
+
+  // Get template for a specific callsign
+  Future<File?> getTemplate(String callsign) async {
+    final templates = await getTemplates();
+    final lowerCallsign = callsign.toLowerCase();
+
+    for (final template in templates) {
+      final fileName = template.path.split('/').last;
+      final baseName = fileName.split('.').first;
+      if (baseName == lowerCallsign) {
+        return template;
+      }
+    }
+    return null;
   }
 }
