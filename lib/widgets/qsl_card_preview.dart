@@ -1,0 +1,56 @@
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import '../models/models.dart';
+import 'qsl_card_painter.dart';
+
+class QslCardPreview extends StatelessWidget {
+  final ui.Image? backgroundImage;
+  final ui.Image? templateImage;
+  final QsoData qsoData;
+  final TextPositions textPositions;
+  final double scaleFactor;
+
+  const QslCardPreview({
+    super.key,
+    this.backgroundImage,
+    this.templateImage,
+    required this.qsoData,
+    required this.textPositions,
+    this.scaleFactor = 0.4,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Standard QSL card aspect ratio (typically 5.5" x 3.5" = 1.57:1)
+    const aspectRatio = 1.57;
+
+    return AspectRatio(
+      aspectRatio: aspectRatio,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color.fromRGBO(0, 0, 0, 0.3),
+              blurRadius: 24,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: CustomPaint(
+            painter: QslCardPainter(
+              backgroundImage: backgroundImage,
+              templateImage: templateImage,
+              qsoData: qsoData,
+              textPositions: textPositions,
+              scaleFactor: scaleFactor,
+            ),
+            size: Size.infinite,
+          ),
+        ),
+      ),
+    );
+  }
+}
