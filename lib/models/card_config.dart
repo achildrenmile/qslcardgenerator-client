@@ -49,12 +49,70 @@ class TextPositions {
       };
 }
 
+/// Operator information displayed on the QSL card
+class OperatorInfo {
+  final String operatorName;
+  final String street;
+  final String city; // QTH / Location
+  final String country;
+  final String locator; // Grid square (e.g., JN66)
+  final String email;
+
+  const OperatorInfo({
+    this.operatorName = '',
+    this.street = '',
+    this.city = '',
+    this.country = '',
+    this.locator = '',
+    this.email = '',
+  });
+
+  factory OperatorInfo.fromJson(Map<String, dynamic> json) {
+    return OperatorInfo(
+      operatorName: json['operatorName'] as String? ?? '',
+      street: json['street'] as String? ?? '',
+      city: json['city'] as String? ?? json['qth'] as String? ?? '',
+      country: json['country'] as String? ?? '',
+      locator: json['locator'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'operatorName': operatorName,
+        'street': street,
+        'city': city,
+        'country': country,
+        'locator': locator,
+        'email': email,
+      };
+
+  OperatorInfo copyWith({
+    String? operatorName,
+    String? street,
+    String? city,
+    String? country,
+    String? locator,
+    String? email,
+  }) {
+    return OperatorInfo(
+      operatorName: operatorName ?? this.operatorName,
+      street: street ?? this.street,
+      city: city ?? this.city,
+      country: country ?? this.country,
+      locator: locator ?? this.locator,
+      email: email ?? this.email,
+    );
+  }
+}
+
 class CardConfig {
   final int? id;
   final String callsign;
   final String name;
   final String qrzLink;
   final TextPositions textPositions;
+  final OperatorInfo operatorInfo;
   final String? templatePath;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -65,10 +123,12 @@ class CardConfig {
     required this.name,
     required this.qrzLink,
     required this.textPositions,
+    OperatorInfo? operatorInfo,
     this.templatePath,
     DateTime? createdAt,
     this.updatedAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+  })  : operatorInfo = operatorInfo ?? const OperatorInfo(),
+        createdAt = createdAt ?? DateTime.now();
 
   factory CardConfig.fromJson(Map<String, dynamic> json) {
     return CardConfig(
@@ -77,6 +137,9 @@ class CardConfig {
       name: json['name'] as String,
       qrzLink: json['qrzLink'] as String,
       textPositions: TextPositions.fromJson(json['textPositions']),
+      operatorInfo: json['operatorInfo'] != null
+          ? OperatorInfo.fromJson(json['operatorInfo'])
+          : const OperatorInfo(),
       templatePath: json['templatePath'] as String?,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt:
@@ -90,6 +153,7 @@ class CardConfig {
         'name': name,
         'qrzLink': qrzLink,
         'textPositions': textPositions.toJson(),
+        'operatorInfo': operatorInfo.toJson(),
         'templatePath': templatePath,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
@@ -101,6 +165,7 @@ class CardConfig {
     String? name,
     String? qrzLink,
     TextPositions? textPositions,
+    OperatorInfo? operatorInfo,
     String? templatePath,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -111,6 +176,7 @@ class CardConfig {
       name: name ?? this.name,
       qrzLink: qrzLink ?? this.qrzLink,
       textPositions: textPositions ?? this.textPositions,
+      operatorInfo: operatorInfo ?? this.operatorInfo,
       templatePath: templatePath ?? this.templatePath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

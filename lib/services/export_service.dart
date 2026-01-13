@@ -12,7 +12,7 @@ class ExportService {
     required ui.Image? backgroundImage,
     required ui.Image? templateImage,
     required QsoData qsoData,
-    required TextPositions textPositions,
+    required CardConfig cardConfig,
     required int width,
     required int height,
     String? suggestedFileName,
@@ -26,7 +26,7 @@ class ExportService {
       backgroundImage: backgroundImage,
       templateImage: templateImage,
       qsoData: qsoData,
-      textPositions: textPositions,
+      cardConfig: cardConfig,
       scaleFactor: 1.0,
     );
 

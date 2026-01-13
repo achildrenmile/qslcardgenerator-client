@@ -7,7 +7,7 @@ class QslCardPreview extends StatelessWidget {
   final ui.Image? backgroundImage;
   final ui.Image? templateImage;
   final QsoData qsoData;
-  final TextPositions textPositions;
+  final CardConfig cardConfig;
   final double scaleFactor;
 
   const QslCardPreview({
@@ -15,7 +15,7 @@ class QslCardPreview extends StatelessWidget {
     this.backgroundImage,
     this.templateImage,
     required this.qsoData,
-    required this.textPositions,
+    required this.cardConfig,
     this.scaleFactor = 0.4,
   });
 
@@ -44,7 +44,7 @@ class QslCardPreview extends StatelessWidget {
               backgroundImage: backgroundImage,
               templateImage: templateImage,
               qsoData: qsoData,
-              textPositions: textPositions,
+              cardConfig: cardConfig,
               scaleFactor: scaleFactor,
             ),
             size: Size.infinite,

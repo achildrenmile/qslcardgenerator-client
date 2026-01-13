@@ -8,8 +8,13 @@ import '../widgets/widgets.dart';
 
 class GeneratorScreen extends StatefulWidget {
   final StorageService storageService;
+  final VoidCallback onResetSetup;
 
-  const GeneratorScreen({super.key, required this.storageService});
+  const GeneratorScreen({
+    super.key,
+    required this.storageService,
+    required this.onResetSetup,
+  });
 
   @override
   State<GeneratorScreen> createState() => _GeneratorScreenState();
@@ -65,9 +70,31 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       ),
     );
 
+    // Load template image for this config
+    if (_activeConfig != null) {
+      await _loadTemplateImage();
+    }
+
+    // Load first background by default if available
+    if (_backgrounds.isNotEmpty) {
+      await _loadBackgroundImage(_backgrounds.first);
+    }
+
     setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<void> _loadTemplateImage() async {
+    if (_activeConfig == null) return;
+
+    final templateFile = await widget.storageService.getTemplate(_activeConfig!.callsign);
+    if (templateFile != null) {
+      final image = await _exportService.loadImage(templateFile);
+      setState(() {
+        _templateImage = image;
+      });
+    }
   }
 
   String _formatDateTime(DateTime dt) {
@@ -77,9 +104,31 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
 
   void _updateQsoData() {
     final additionalLines = _additionalController.text.split('\n');
+    // Parse the date/time string
+    DateTime? parsedDateTime;
+    try {
+      final parts = _dateTimeController.text.split(' ');
+      if (parts.length == 2) {
+        final dateParts = parts[0].split('.');
+        final timeParts = parts[1].split(':');
+        if (dateParts.length == 3 && timeParts.length == 2) {
+          parsedDateTime = DateTime.utc(
+            int.parse(dateParts[2]), // year
+            int.parse(dateParts[1]), // month
+            int.parse(dateParts[0]), // day
+            int.parse(timeParts[0]), // hour
+            int.parse(timeParts[1]), // minute
+          );
+        }
+      }
+    } catch (_) {
+      // Keep existing date if parsing fails
+    }
+
     setState(() {
       _qsoData = _qsoData.copyWith(
         contactCallsign: _callsignController.text,
+        utcDateTime: parsedDateTime,
         frequency: _frequencyController.text,
         mode: _modeController.text,
         rst: _rstController.text,
@@ -107,6 +156,15 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     }
   }
 
+  Future<void> _pickTemplateImage() async {
+    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (result != null && _activeConfig != null) {
+      final file = File(result.path);
+      await widget.storageService.saveTemplate(file, _activeConfig!.callsign);
+      await _loadTemplateImage();
+    }
+  }
+
   Future<void> _exportCard() async {
     if (_activeConfig == null) return;
 
@@ -114,15 +172,15 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
         ? 'QSL'
         : _callsignController.text.toUpperCase();
 
-    // Standard QSL card dimensions (4:2.5 ratio at 300 DPI)
-    const width = 1800;
-    const height = 1143;
+    // High resolution export (matches web version)
+    const width = 4961;
+    const height = 3189;
 
     final file = await _exportService.exportCard(
       backgroundImage: _backgroundImage,
       templateImage: _templateImage,
       qsoData: _qsoData,
-      textPositions: _activeConfig!.textPositions,
+      cardConfig: _activeConfig!,
       width: width,
       height: height,
       suggestedFileName: '$callsign.png',
@@ -163,11 +221,47 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
         backgroundColor: const Color(0xFF1e293b),
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              // TODO: Open settings screen
+            onSelected: (value) async {
+              if (value == 'reset') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Reset Setup?'),
+                    content: const Text(
+                      'This will clear your station settings and show the setup wizard again.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Reset'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await widget.storageService.resetSetup();
+                  widget.onResetSetup();
+                }
+              }
             },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'reset',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, size: 20),
+                    SizedBox(width: 8),
+                    Text('Reset Setup Wizard'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -236,13 +330,19 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
               color: const Color(0xFF0f172a),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: QslCardPreview(
-              backgroundImage: _backgroundImage,
-              templateImage: _templateImage,
-              qsoData: _qsoData,
-              textPositions:
-                  _activeConfig?.textPositions ?? TextPositions.defaultPositions(),
-            ),
+            child: _activeConfig != null
+                ? QslCardPreview(
+                    backgroundImage: _backgroundImage,
+                    templateImage: _templateImage,
+                    qsoData: _qsoData,
+                    cardConfig: _activeConfig!,
+                  )
+                : const Center(
+                    child: Text(
+                      'No configuration loaded',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
           ),
           const SizedBox(height: 24),
 
@@ -349,6 +449,38 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
               const Divider(color: Color(0xFF475569)),
               const SizedBox(height: 24),
 
+              // Template section
+              const Text(
+                'Card Template',
+                style: TextStyle(
+                  color: Color(0xFF94a3b8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _pickTemplateImage,
+                icon: Icon(
+                  _templateImage != null ? Icons.check_circle : Icons.add_photo_alternate,
+                  color: _templateImage != null ? Colors.green : const Color(0xFF94a3b8),
+                ),
+                label: Text(
+                  _templateImage != null ? 'Template Loaded' : 'Upload Template PNG',
+                  style: TextStyle(
+                    color: _templateImage != null ? Colors.green : const Color(0xFF94a3b8),
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                    color: _templateImage != null ? Colors.green : const Color(0xFF475569),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // Background Selection
               const Text(
                 'Background',
@@ -383,7 +515,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                       const DropdownMenuItem<File?>(
                         value: null,
                         child: Text(
-                          'No background',
+                          'No background (white)',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),

@@ -21,25 +21,38 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> {
   final _pageController = PageController();
   final _imagePicker = ImagePicker();
+  final _templateGenerator = TemplateGenerator();
 
   int _currentStep = 0;
-  final int _totalSteps = 4;
+  final int _totalSteps = 3;
 
-  // Form data
+  // Station info
   final _callsignController = TextEditingController();
   final _stationNameController = TextEditingController();
-  final _qrzLinkController = TextEditingController();
 
-  File? _templateImage;
+  // Operator/Address info
+  final _operatorNameController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _countryController = TextEditingController();
+  final _locatorController = TextEditingController();
+  final _emailController = TextEditingController();
+
   final List<File> _backgroundImages = [];
   bool _isLoading = false;
+  String _loadingMessage = '';
 
   @override
   void dispose() {
     _pageController.dispose();
     _callsignController.dispose();
     _stationNameController.dispose();
-    _qrzLinkController.dispose();
+    _operatorNameController.dispose();
+    _streetController.dispose();
+    _cityController.dispose();
+    _countryController.dispose();
+    _locatorController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -60,13 +73,6 @@ class _SetupScreenState extends State<SetupScreen> {
         curve: Curves.easeInOut,
       );
       setState(() => _currentStep--);
-    }
-  }
-
-  Future<void> _pickTemplateImage() async {
-    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
-    if (result != null) {
-      setState(() => _templateImage = File(result.path));
     }
   }
 
@@ -91,31 +97,51 @@ class _SetupScreenState extends State<SetupScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Creating your station...';
+    });
 
     try {
       final callsign = _callsignController.text.toUpperCase();
 
+      // Create operator info
+      final operatorInfo = OperatorInfo(
+        operatorName: _operatorNameController.text,
+        street: _streetController.text,
+        city: _cityController.text,
+        country: _countryController.text,
+        locator: _locatorController.text.toUpperCase(),
+        email: _emailController.text,
+      );
+
       // Create card config
+      setState(() => _loadingMessage = 'Saving configuration...');
       final config = await widget.storageService.createConfig(
         CardConfig(
           callsign: callsign,
           name: _stationNameController.text.isNotEmpty
               ? _stationNameController.text
               : callsign,
-          qrzLink: _qrzLinkController.text.isNotEmpty
-              ? _qrzLinkController.text
-              : 'https://www.qrz.com/db/$callsign',
+          qrzLink: 'https://www.qrz.com/db/$callsign',
           textPositions: TextPositions.defaultPositions(),
+          operatorInfo: operatorInfo,
         ),
       );
 
-      // Save template image
-      if (_templateImage != null) {
-        await widget.storageService.saveTemplate(_templateImage!, callsign);
-      }
+      // Generate card template
+      setState(() => _loadingMessage = 'Generating card template...');
+      await _templateGenerator.generateTemplate(
+        callsign: callsign,
+        operatorName: _operatorNameController.text,
+        street: _streetController.text,
+        city: _cityController.text,
+        country: _countryController.text,
+        email: _emailController.text,
+      );
 
       // Save background images
+      setState(() => _loadingMessage = 'Saving backgrounds...');
       for (final bg in _backgroundImages) {
         await widget.storageService.saveBackground(bg);
       }
@@ -173,8 +199,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _buildWelcomePage(),
-                  _buildCallsignPage(),
-                  _buildTemplatePage(),
+                  _buildStationInfoPage(),
                   _buildBackgroundsPage(),
                 ],
               ),
@@ -187,7 +212,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 children: [
                   if (_currentStep > 0)
                     TextButton(
-                      onPressed: _previousStep,
+                      onPressed: _isLoading ? null : _previousStep,
                       child: const Text('Back'),
                     ),
                   const Spacer(),
@@ -216,15 +241,22 @@ class _SetupScreenState extends State<SetupScreen> {
                         ),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(_loadingMessage),
+                              ],
                             )
-                          : const Text('Complete Setup'),
+                          : const Text('Generate Card & Finish'),
                     ),
                 ],
               ),
@@ -240,10 +272,9 @@ class _SetupScreenState extends State<SetupScreen> {
       case 0:
         return true; // Welcome page
       case 1:
-        return _callsignController.text.isNotEmpty;
+        return _callsignController.text.isNotEmpty &&
+            _operatorNameController.text.isNotEmpty;
       case 2:
-        return true; // Template is optional
-      case 3:
         return true; // Backgrounds are optional
       default:
         return true;
@@ -274,7 +305,7 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Create beautiful QSL cards for your amateur radio contacts.\n\nLet\'s set up your station in a few simple steps.',
+            'Create beautiful QSL cards for your amateur radio contacts.\n\nWe\'ll generate a professional card template with your callsign and address.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -287,7 +318,7 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildCallsignPage() {
+  Widget _buildStationInfoPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -303,7 +334,7 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Enter your callsign and station details.',
+            'This information will appear on your QSL card template.',
             style: TextStyle(
               fontSize: 16,
               color: Color(0xFF94a3b8),
@@ -311,111 +342,108 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
           const SizedBox(height: 32),
 
+          // Callsign (required)
           _buildTextField(
             label: 'Callsign *',
             controller: _callsignController,
             hint: 'e.g. OE8YML',
             textCapitalization: TextCapitalization.characters,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          _buildTextField(
-            label: 'Station Name (optional)',
-            controller: _stationNameController,
-            hint: 'e.g. My Home Station',
-          ),
-          const SizedBox(height: 20),
+          const Divider(color: Color(0xFF475569)),
+          const SizedBox(height: 24),
 
-          _buildTextField(
-            label: 'QRZ.com Profile URL (optional)',
-            controller: _qrzLinkController,
-            hint: 'https://www.qrz.com/db/OE8YML',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTemplatePage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
           const Text(
-            'Card Template',
+            'Address (for card template)',
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Upload a PNG overlay template with transparent areas for the QSO data. This is optional - you can add it later.',
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFF94a3b8),
+          const SizedBox(height: 16),
+
+          // Operator Name (required)
+          _buildTextField(
+            label: 'Your Name *',
+            controller: _operatorNameController,
+            hint: 'e.g. Michael Linder',
+          ),
+          const SizedBox(height: 16),
+
+          // Street
+          _buildTextField(
+            label: 'Street Address',
+            controller: _streetController,
+            hint: 'e.g. Musterstraße 55',
+          ),
+          const SizedBox(height: 16),
+
+          // City and Country row
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                  label: 'City / QTH',
+                  controller: _cityController,
+                  hint: 'e.g. 9611 Nötsch im Gailtal',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildTextField(
+                  label: 'Country',
+                  controller: _countryController,
+                  hint: 'e.g. Austria',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Email
+          _buildTextField(
+            label: 'Email',
+            controller: _emailController,
+            hint: 'e.g. oe8yml@example.at',
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 16),
+
+          // Locator
+          _buildTextField(
+            label: 'Grid Locator',
+            controller: _locatorController,
+            hint: 'e.g. JN66',
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 24),
+
+          // Preview hint
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1e3a5f),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF3b82f6)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome, color: const Color(0xFF60a5fa)),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'A professional QSL card template will be generated with your callsign and address information.',
+                    style: TextStyle(
+                      color: Color(0xFF93c5fd),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
-
-          if (_templateImage != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                _templateImage!,
-                height: 200,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: () => setState(() => _templateImage = null),
-              icon: const Icon(Icons.delete, color: Colors.red),
-              label: const Text('Remove', style: TextStyle(color: Colors.red)),
-            ),
-          ] else ...[
-            InkWell(
-              onTap: _pickTemplateImage,
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFF475569),
-                    style: BorderStyle.solid,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  color: const Color(0xFF1e293b),
-                ),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_photo_alternate,
-                        size: 48,
-                        color: Color(0xFF64748b),
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'Click to upload template',
-                        style: TextStyle(color: Color(0xFF64748b)),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'PNG with transparency recommended',
-                        style: TextStyle(
-                          color: Color(0xFF475569),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -437,10 +465,34 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add background images for your QSL cards. You can add more later from the generator.',
+            'Add background images for your QSL cards. These will appear behind your card template.',
             style: TextStyle(
               fontSize: 16,
               color: Color(0xFF94a3b8),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1e3a5f),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF3b82f6)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.landscape, color: const Color(0xFF60a5fa)),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Use scenic photos like mountains, landscapes, or your shack. You can add more later.',
+                    style: TextStyle(
+                      color: Color(0xFF93c5fd),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 32),
@@ -460,7 +512,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.add,
+                      Icons.add_photo_alternate,
                       size: 32,
                       color: Color(0xFF3b82f6),
                     ),
@@ -531,6 +583,7 @@ class _SetupScreenState extends State<SetupScreen> {
     required TextEditingController controller,
     String? hint,
     TextCapitalization textCapitalization = TextCapitalization.none,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,6 +601,7 @@ class _SetupScreenState extends State<SetupScreen> {
         TextField(
           controller: controller,
           textCapitalization: textCapitalization,
+          keyboardType: keyboardType,
           style: const TextStyle(color: Colors.white, fontSize: 18),
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(

@@ -6,131 +6,177 @@ class QslCardPainter extends CustomPainter {
   final ui.Image? backgroundImage;
   final ui.Image? templateImage;
   final QsoData qsoData;
-  final TextPositions textPositions;
+  final CardConfig cardConfig;
   final double scaleFactor;
+
+  // Card dimensions at full resolution (matches web version)
+  static const double fullWidth = 4961;
+  static const double fullHeight = 3189;
 
   QslCardPainter({
     this.backgroundImage,
     this.templateImage,
     required this.qsoData,
-    required this.textPositions,
-    this.scaleFactor = 0.4,
+    required this.cardConfig,
+    this.scaleFactor = 1.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint();
+    final scaleX = size.width / fullWidth;
+    final scaleY = size.height / fullHeight;
 
-    // Draw background
+    // Draw background image (layer 1)
+    _drawBackground(canvas, size);
+
+    // Draw template overlay (layer 2) - user's custom PNG with logos, address, etc.
+    _drawTemplate(canvas, size);
+
+    // Draw QSO data text at configured positions (layer 3)
+    _drawQsoData(canvas, size, scaleX, scaleY);
+  }
+
+  void _drawBackground(Canvas canvas, Size size) {
     if (backgroundImage != null) {
+      final paint = Paint();
       canvas.drawImageRect(
         backgroundImage!,
-        Rect.fromLTWH(0, 0, backgroundImage!.width.toDouble(),
-            backgroundImage!.height.toDouble()),
+        Rect.fromLTWH(
+          0,
+          0,
+          backgroundImage!.width.toDouble(),
+          backgroundImage!.height.toDouble(),
+        ),
         Rect.fromLTWH(0, 0, size.width, size.height),
         paint,
       );
     } else {
-      // Default background color
-      paint.color = const Color(0xFF1e293b);
-      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+      // Default white background if no image
+      final bgPaint = Paint()..color = Colors.white;
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
     }
+  }
 
-    // Draw template overlay
+  void _drawTemplate(Canvas canvas, Size size) {
     if (templateImage != null) {
+      final paint = Paint();
       canvas.drawImageRect(
         templateImage!,
-        Rect.fromLTWH(0, 0, templateImage!.width.toDouble(),
-            templateImage!.height.toDouble()),
+        Rect.fromLTWH(
+          0,
+          0,
+          templateImage!.width.toDouble(),
+          templateImage!.height.toDouble(),
+        ),
         Rect.fromLTWH(0, 0, size.width, size.height),
         paint,
       );
     }
+  }
 
-    // Draw text fields
-    // Callsign (large, centered)
-    _drawText(
-      canvas,
-      qsoData.contactCallsign.toUpperCase(),
-      textPositions.callsign,
-      100 * scaleFactor,
-      TextAlign.center,
-    );
+  void _drawQsoData(Canvas canvas, Size size, double scaleX, double scaleY) {
+    final positions = cardConfig.textPositions;
 
-    // UTC DateTime
+    // Contact callsign
+    if (qsoData.contactCallsign.isNotEmpty) {
+      _drawText(
+        canvas,
+        qsoData.contactCallsign.toUpperCase(),
+        Offset(positions.callsign.x * scaleX, positions.callsign.y * scaleY),
+        100 * scaleX,
+        Colors.white,
+        align: TextAlign.center,
+        fontWeight: FontWeight.normal,
+      );
+    }
+
+    // UTC Date/Time
     _drawText(
       canvas,
       qsoData.formattedDateTime,
-      textPositions.utcDateTime,
-      80 * scaleFactor,
-      TextAlign.center,
+      Offset(positions.utcDateTime.x * scaleX, positions.utcDateTime.y * scaleY),
+      80 * scaleX,
+      Colors.white,
+      align: TextAlign.center,
     );
 
     // Frequency
-    _drawText(
-      canvas,
-      qsoData.frequency,
-      textPositions.frequency,
-      100 * scaleFactor,
-      TextAlign.center,
-    );
+    if (qsoData.frequency.isNotEmpty) {
+      _drawText(
+        canvas,
+        qsoData.frequency,
+        Offset(positions.frequency.x * scaleX, positions.frequency.y * scaleY),
+        100 * scaleX,
+        Colors.white,
+        align: TextAlign.center,
+      );
+    }
 
     // Mode
-    _drawText(
-      canvas,
-      qsoData.mode.toUpperCase(),
-      textPositions.mode,
-      100 * scaleFactor,
-      TextAlign.center,
-    );
+    if (qsoData.mode.isNotEmpty) {
+      _drawText(
+        canvas,
+        qsoData.mode.toUpperCase(),
+        Offset(positions.mode.x * scaleX, positions.mode.y * scaleY),
+        100 * scaleX,
+        Colors.white,
+        align: TextAlign.center,
+      );
+    }
 
     // RST
-    _drawText(
-      canvas,
-      qsoData.rst,
-      textPositions.rst,
-      100 * scaleFactor,
-      TextAlign.center,
-    );
+    if (qsoData.rst.isNotEmpty) {
+      _drawText(
+        canvas,
+        qsoData.rst,
+        Offset(positions.rst.x * scaleX, positions.rst.y * scaleY),
+        100 * scaleX,
+        Colors.white,
+        align: TextAlign.center,
+      );
+    }
 
-    // Additional lines (left aligned)
-    _drawText(
-      canvas,
-      qsoData.additionalLine1,
-      textPositions.additional,
-      100 * scaleFactor,
-      TextAlign.left,
-      isBold: true,
-    );
-
-    _drawText(
-      canvas,
-      qsoData.additionalLine2,
-      TextPosition(
-        x: textPositions.additional.x,
-        y: textPositions.additional.y + (120 * scaleFactor / scaleFactor),
-      ),
-      100 * scaleFactor,
-      TextAlign.left,
-      isBold: true,
-    );
+    // Additional remarks
+    if (qsoData.additionalLine1.isNotEmpty) {
+      _drawText(
+        canvas,
+        qsoData.additionalLine1,
+        Offset(positions.additional.x * scaleX, positions.additional.y * scaleY),
+        100 * scaleX,
+        Colors.black,
+        align: TextAlign.left,
+        fontWeight: FontWeight.bold,
+      );
+    }
+    if (qsoData.additionalLine2.isNotEmpty) {
+      _drawText(
+        canvas,
+        qsoData.additionalLine2,
+        Offset(positions.additional.x * scaleX, (positions.additional.y + 120) * scaleY),
+        100 * scaleX,
+        Colors.black,
+        align: TextAlign.left,
+        fontWeight: FontWeight.bold,
+      );
+    }
   }
 
   void _drawText(
     Canvas canvas,
     String text,
-    TextPosition position,
+    Offset position,
     double fontSize,
-    TextAlign align, {
-    bool isBold = false,
+    Color color, {
+    TextAlign align = TextAlign.left,
+    FontWeight fontWeight = FontWeight.normal,
   }) {
     final textSpan = TextSpan(
       text: text,
       style: TextStyle(
-        color: Colors.black,
+        color: color,
         fontSize: fontSize,
+        fontWeight: fontWeight,
         fontFamily: 'Arial',
-        fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
       ),
     );
 
@@ -142,15 +188,15 @@ class QslCardPainter extends CustomPainter {
 
     textPainter.layout();
 
-    double x = position.x * scaleFactor;
-    double y = position.y * scaleFactor;
+    double x = position.dx;
+    double y = position.dy;
 
-    // Adjust x based on alignment
+    // Adjust based on alignment
     if (align == TextAlign.center) {
       x -= textPainter.width / 2;
+    } else if (align == TextAlign.right) {
+      x -= textPainter.width;
     }
-
-    // Center vertically
     y -= textPainter.height / 2;
 
     textPainter.paint(canvas, Offset(x, y));
@@ -161,7 +207,7 @@ class QslCardPainter extends CustomPainter {
     return oldDelegate.backgroundImage != backgroundImage ||
         oldDelegate.templateImage != templateImage ||
         oldDelegate.qsoData != qsoData ||
-        oldDelegate.textPositions != textPositions ||
+        oldDelegate.cardConfig != cardConfig ||
         oldDelegate.scaleFactor != scaleFactor;
   }
 }

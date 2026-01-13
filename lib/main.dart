@@ -36,6 +36,12 @@ class _QslCardGeneratorAppState extends State<QslCardGeneratorApp> {
     });
   }
 
+  void _onResetSetup() {
+    setState(() {
+      _setupComplete = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -49,7 +55,10 @@ class _QslCardGeneratorAppState extends State<QslCardGeneratorApp> {
         useMaterial3: true,
       ),
       home: _setupComplete
-          ? GeneratorScreen(storageService: widget.storageService)
+          ? GeneratorScreen(
+              storageService: widget.storageService,
+              onResetSetup: _onResetSetup,
+            )
           : SetupScreen(
               storageService: widget.storageService,
               onSetupComplete: _onSetupComplete,
