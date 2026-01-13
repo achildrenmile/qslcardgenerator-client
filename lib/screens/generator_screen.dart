@@ -152,7 +152,12 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       final file = File(result.path);
       final savedFile = await widget.storageService.saveBackground(file);
       _backgrounds = await widget.storageService.getBackgrounds();
-      await _loadBackgroundImage(savedFile);
+      // Find the matching file in the reloaded list by path
+      final matchingFile = _backgrounds.firstWhere(
+        (f) => f.path == savedFile.path,
+        orElse: () => savedFile,
+      );
+      await _loadBackgroundImage(matchingFile);
     }
   }
 
