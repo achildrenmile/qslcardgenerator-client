@@ -28,7 +28,6 @@ class QslCardGeneratorApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
-        fontFamily: 'Inter',
       ),
       home: GeneratorScreen(storageService: storageService),
     );

@@ -40,14 +40,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/
-    - assets/backgrounds/
-    - assets/templates/
-
-  fonts:
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/Inter-Regular.ttf
-        - asset: assets/fonts/Inter-Bold.ttf
-          weight: 700
+  # Assets will be added when background/template images are available
+  # assets:
+  #   - assets/backgrounds/
+  #   - assets/templates/
