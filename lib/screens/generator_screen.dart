@@ -101,7 +101,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     // Load default background (prefer default_gradient, then first available)
     if (_backgrounds.isNotEmpty) {
       final defaultBg = _backgrounds.firstWhere(
-        (f) => f.path.endsWith('default_gradient.png'),
+        (f) => f.path.endsWith('default_mountain.png'),
         orElse: () => _backgrounds.first,
       );
       await _loadBackgroundImage(defaultBg);

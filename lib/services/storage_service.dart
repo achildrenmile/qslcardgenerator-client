@@ -300,11 +300,11 @@ class StorageService {
 
   // Copy default background from assets if it doesn't exist
   Future<void> _copyDefaultBackgroundIfNeeded() async {
-    final destPath = p.join(_backgroundsDir.path, 'default_gradient.png');
+    final destPath = p.join(_backgroundsDir.path, 'default_mountain.png');
     final destFile = File(destPath);
     if (!await destFile.exists()) {
       try {
-        final byteData = await rootBundle.load('assets/backgrounds/default_gradient.png');
+        final byteData = await rootBundle.load('assets/backgrounds/default_mountain.png');
         await destFile.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
       } catch (e) {
         // Asset not found or failed to copy - not critical

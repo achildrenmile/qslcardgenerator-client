@@ -1,0 +1,18 @@
+Default Mountain Background Image
+=================================
+
+Source: Unsplash
+Photo ID: photo-1506905925346-21bda4d32df4
+URL: https://unsplash.com/photos/1506905925346-21bda4d32df4
+
+License: Unsplash License
+- Free to use for commercial and non-commercial purposes
+- No attribution required (but appreciated)
+- Can be modified
+
+Unsplash License: https://unsplash.com/license
+
+"Unsplash grants you an irrevocable, nonexclusive, worldwide copyright
+license to download, copy, modify, distribute, perform, and use photos
+from Unsplash for free, including for commercial purposes, without
+permission from or attributing the photographer or Unsplash."
