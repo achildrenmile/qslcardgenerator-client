@@ -68,6 +68,7 @@ flutter:
   assets:
     - assets/fonts/
     - assets/icon/
+    - assets/backgrounds/
 
   fonts:
     - family: DancingScript

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -30,6 +31,8 @@ class StorageService {
     if (!await _backgroundsDir.exists()) {
       await _backgroundsDir.create(recursive: true);
     }
+    // Copy default background if backgrounds directory is empty
+    await _copyDefaultBackgroundIfNeeded();
     if (!await _templatesDir.exists()) {
       await _templatesDir.create(recursive: true);
     }
@@ -297,6 +300,20 @@ class StorageService {
   bool _isImageFile(String path) {
     final ext = path.toLowerCase().split('.').last;
     return ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+  }
+
+  // Copy default background from assets if it doesn't exist
+  Future<void> _copyDefaultBackgroundIfNeeded() async {
+    final destPath = '${_backgroundsDir.path}/default_gradient.png';
+    final destFile = File(destPath);
+    if (!await destFile.exists()) {
+      try {
+        final byteData = await rootBundle.load('assets/backgrounds/default_gradient.png');
+        await destFile.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+      } catch (e) {
+        // Asset not found or failed to copy - not critical
+      }
+    }
   }
 
   // Setup Management

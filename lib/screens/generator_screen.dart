@@ -98,9 +98,13 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       await _loadAdditionalLogos();
     }
 
-    // Load first background by default if available
+    // Load default background (prefer default_gradient, then first available)
     if (_backgrounds.isNotEmpty) {
-      await _loadBackgroundImage(_backgrounds.first);
+      final defaultBg = _backgrounds.firstWhere(
+        (f) => f.path.endsWith('default_gradient.png'),
+        orElse: () => _backgrounds.first,
+      );
+      await _loadBackgroundImage(defaultBg);
     }
 
     setState(() {
@@ -1479,11 +1483,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: _selectedBackground?.path,
-                    hint: const Text(
-                      'Select a background...',
-                      style: TextStyle(color: Color(0xFF64748b)),
-                    ),
+                    value: _selectedBackground?.path ?? '',
                     dropdownColor: const Color(0xFF1e293b),
                     isExpanded: true,
                     items: [
