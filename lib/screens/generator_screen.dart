@@ -190,6 +190,30 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     }
   }
 
+  Future<void> _pickAdditionalLogo() async {
+    if (_activeConfig == null) return;
+    if (_additionalLogos.length >= 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 6 additional logos allowed')),
+      );
+      return;
+    }
+
+    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (result != null) {
+      final file = File(result.path);
+      final nextIndex = _additionalLogos.length + 1;
+      await widget.storageService.saveAdditionalLogo(file, _activeConfig!.callsign, nextIndex);
+      await _loadAdditionalLogos();
+    }
+  }
+
+  Future<void> _removeAdditionalLogo(int index) async {
+    if (_activeConfig == null) return;
+    await widget.storageService.deleteAdditionalLogo(_activeConfig!.callsign, index + 1);
+    await _loadAdditionalLogos();
+  }
+
   String _formatDate(DateTime dt) {
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
@@ -671,6 +695,93 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 uploadText: 'Upload Signature Image',
                 onPressed: _pickSignatureImage,
               ),
+              const SizedBox(height: 16),
+
+              // Additional Logos
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'ADDITIONAL LOGOS',
+                    style: TextStyle(
+                      color: Color(0xFF94a3b8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    '${_additionalLogos.length}/6',
+                    style: const TextStyle(
+                      color: Color(0xFF64748b),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Additional logos grid
+              if (_additionalLogos.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _additionalLogos.asMap().entries.map((entry) {
+                    return Stack(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFF475569)),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(5),
+                            child: RawImage(
+                              image: entry.value,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: InkWell(
+                            onTap: () => _removeAdditionalLogo(entry.key),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+
+              if (_additionalLogos.length < 6) ...[
+                if (_additionalLogos.isNotEmpty) const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _pickAdditionalLogo,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(_additionalLogos.isEmpty ? 'Add Logo' : 'Add Another'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF3b82f6),
+                    side: const BorderSide(color: Color(0xFF475569)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // Background Selection
@@ -868,7 +979,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
             side: BorderSide(
               color: hasImage ? Colors.green : const Color(0xFF475569),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           ),
         ),
       ],
