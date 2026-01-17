@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/models.dart';
 import '../widgets/qsl_card_painter.dart';
@@ -9,7 +10,7 @@ class ExportService {
   /// Get the QSL cards export directory
   Future<Directory> getExportDirectory() async {
     final docsDir = await getApplicationDocumentsDirectory();
-    final exportDir = Directory('${docsDir.path}/QSL Cards');
+    final exportDir = Directory(p.join(docsDir.path, 'QSL Cards'));
     if (!await exportDir.exists()) {
       await exportDir.create(recursive: true);
     }
@@ -20,7 +21,7 @@ class ExportService {
   /// If OE8CDC.png exists, returns OE8CDC(1).png, OE8CDC(2).png, etc.
   Future<String> _getUniqueFilePath(Directory dir, String callsign) async {
     final baseCallsign = callsign.toUpperCase();
-    var filePath = '${dir.path}/$baseCallsign.png';
+    var filePath = p.join(dir.path, '$baseCallsign.png');
 
     if (!await File(filePath).exists()) {
       return filePath;
@@ -28,11 +29,11 @@ class ExportService {
 
     // Find next available number
     int counter = 1;
-    while (await File('${dir.path}/$baseCallsign($counter).png').exists()) {
+    while (await File(p.join(dir.path, '$baseCallsign($counter).png')).exists()) {
       counter++;
     }
 
-    return '${dir.path}/$baseCallsign($counter).png';
+    return p.join(dir.path, '$baseCallsign($counter).png');
   }
 
   /// Export QSL card as PNG image

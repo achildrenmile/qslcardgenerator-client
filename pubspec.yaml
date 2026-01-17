@@ -24,6 +24,7 @@ dependencies:
   # File operations
   file_picker: ^8.1.7
   permission_handler: ^11.3.1
+  path: ^1.9.0
 
   # UI components
   flutter_colorpicker: ^1.1.0

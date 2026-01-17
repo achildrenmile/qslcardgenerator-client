@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -22,11 +23,11 @@ class StorageService {
     _prefs = await SharedPreferences.getInstance();
     _appDir = await getApplicationDocumentsDirectory();
 
-    _backgroundsDir = Directory('${_appDir.path}/qsl_backgrounds');
-    _templatesDir = Directory('${_appDir.path}/qsl_templates');
-    _logosDir = Directory('${_appDir.path}/qsl_logos');
-    _additionalLogosDir = Directory('${_appDir.path}/qsl_additional_logos');
-    _signaturesDir = Directory('${_appDir.path}/qsl_signatures');
+    _backgroundsDir = Directory(p.join(_appDir.path, 'qsl_backgrounds'));
+    _templatesDir = Directory(p.join(_appDir.path, 'qsl_templates'));
+    _logosDir = Directory(p.join(_appDir.path, 'qsl_logos'));
+    _additionalLogosDir = Directory(p.join(_appDir.path, 'qsl_additional_logos'));
+    _signaturesDir = Directory(p.join(_appDir.path, 'qsl_signatures'));
 
     if (!await _backgroundsDir.exists()) {
       await _backgroundsDir.create(recursive: true);
@@ -120,13 +121,13 @@ class StorageService {
   }
 
   Future<File> saveBackground(File sourceFile) async {
-    final fileName = sourceFile.path.split('/').last;
-    final destPath = '${_backgroundsDir.path}/$fileName';
+    final fileName = p.basename(sourceFile.path);
+    final destPath = p.join(_backgroundsDir.path, fileName);
     return sourceFile.copy(destPath);
   }
 
   Future<void> deleteBackground(String fileName) async {
-    final file = File('${_backgroundsDir.path}/$fileName');
+    final file = File(p.join(_backgroundsDir.path, fileName));
     if (await file.exists()) {
       await file.delete();
     }
@@ -143,8 +144,8 @@ class StorageService {
   }
 
   Future<File> saveTemplate(File sourceFile, String callsign) async {
-    final ext = sourceFile.path.split('.').last;
-    final destPath = '${_templatesDir.path}/${callsign.toLowerCase()}.$ext';
+    final ext = p.extension(sourceFile.path);
+    final destPath = p.join(_templatesDir.path, '${callsign.toLowerCase()}$ext');
     return sourceFile.copy(destPath);
   }
 
@@ -159,16 +160,15 @@ class StorageService {
   }
 
   Future<File> saveLogo(File sourceFile, String callsign) async {
-    final ext = sourceFile.path.split('.').last;
-    final destPath = '${_logosDir.path}/${callsign.toLowerCase()}.$ext';
+    final ext = p.extension(sourceFile.path);
+    final destPath = p.join(_logosDir.path, '${callsign.toLowerCase()}$ext');
     return sourceFile.copy(destPath);
   }
 
   Future<void> deleteLogo(String callsign) async {
     final logos = await getLogos();
     for (final logo in logos) {
-      final fileName = logo.path.split('/').last;
-      final baseName = fileName.split('.').first;
+      final baseName = p.basenameWithoutExtension(logo.path);
       if (baseName == callsign.toLowerCase()) {
         await logo.delete();
         break;
@@ -181,8 +181,7 @@ class StorageService {
     final lowerCallsign = callsign.toLowerCase();
 
     for (final logo in logos) {
-      final fileName = logo.path.split('/').last;
-      final baseName = fileName.split('.').first;
+      final baseName = p.basenameWithoutExtension(logo.path);
       if (baseName == lowerCallsign) {
         return logo;
       }
@@ -201,8 +200,8 @@ class StorageService {
   }
 
   Future<File> saveSignature(File sourceFile, String callsign) async {
-    final ext = sourceFile.path.split('.').last;
-    final destPath = '${_signaturesDir.path}/${callsign.toLowerCase()}.$ext';
+    final ext = p.extension(sourceFile.path);
+    final destPath = p.join(_signaturesDir.path, '${callsign.toLowerCase()}$ext');
     // Don't copy if source and destination are the same (e.g., from SignatureGenerator)
     if (sourceFile.path == destPath) {
       return sourceFile;
@@ -213,8 +212,7 @@ class StorageService {
   Future<void> deleteSignature(String callsign) async {
     final signatures = await getSignatures();
     for (final sig in signatures) {
-      final fileName = sig.path.split('/').last;
-      final baseName = fileName.split('.').first;
+      final baseName = p.basenameWithoutExtension(sig.path);
       if (baseName == callsign.toLowerCase()) {
         await sig.delete();
         break;
@@ -227,8 +225,7 @@ class StorageService {
     final lowerCallsign = callsign.toLowerCase();
 
     for (final sig in signatures) {
-      final fileName = sig.path.split('/').last;
-      final baseName = fileName.split('.').first;
+      final baseName = p.basenameWithoutExtension(sig.path);
       if (baseName == lowerCallsign) {
         return sig;
       }
@@ -245,7 +242,7 @@ class StorageService {
 
     final files = await _additionalLogosDir.list().toList();
     for (final file in files.whereType<File>()) {
-      final fileName = file.path.split('/').last;
+      final fileName = p.basename(file.path);
       if (fileName.startsWith('${lowerCallsign}_') && _isImageFile(file.path)) {
         logos.add(file);
       }
@@ -261,9 +258,8 @@ class StorageService {
     return logos;
   }
 
-  int _extractLogoNumber(String path) {
-    final fileName = path.split('/').last;
-    final baseName = fileName.split('.').first;
+  int _extractLogoNumber(String filePath) {
+    final baseName = p.basenameWithoutExtension(filePath);
     final parts = baseName.split('_');
     if (parts.length >= 2) {
       return int.tryParse(parts.last) ?? 0;
@@ -272,8 +268,8 @@ class StorageService {
   }
 
   Future<File> saveAdditionalLogo(File sourceFile, String callsign, int index) async {
-    final ext = sourceFile.path.split('.').last;
-    final destPath = '${_additionalLogosDir.path}/${callsign.toLowerCase()}_$index.$ext';
+    final ext = p.extension(sourceFile.path);
+    final destPath = p.join(_additionalLogosDir.path, '${callsign.toLowerCase()}_$index$ext');
     return sourceFile.copy(destPath);
   }
 
@@ -282,7 +278,7 @@ class StorageService {
     final lowerCallsign = callsign.toLowerCase();
 
     for (final logo in logos) {
-      final fileName = logo.path.split('/').last;
+      final fileName = p.basename(logo.path);
       if (fileName.startsWith('${lowerCallsign}_$index.')) {
         await logo.delete();
         break;
@@ -297,14 +293,14 @@ class StorageService {
     }
   }
 
-  bool _isImageFile(String path) {
-    final ext = path.toLowerCase().split('.').last;
-    return ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+  bool _isImageFile(String filePath) {
+    final ext = p.extension(filePath).toLowerCase();
+    return ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext);
   }
 
   // Copy default background from assets if it doesn't exist
   Future<void> _copyDefaultBackgroundIfNeeded() async {
-    final destPath = '${_backgroundsDir.path}/default_gradient.png';
+    final destPath = p.join(_backgroundsDir.path, 'default_gradient.png');
     final destFile = File(destPath);
     if (!await destFile.exists()) {
       try {
@@ -337,8 +333,7 @@ class StorageService {
     final lowerCallsign = callsign.toLowerCase();
 
     for (final template in templates) {
-      final fileName = template.path.split('/').last;
-      final baseName = fileName.split('.').first;
+      final baseName = p.basenameWithoutExtension(template.path);
       if (baseName == lowerCallsign) {
         return template;
       }
@@ -348,40 +343,38 @@ class StorageService {
 
   // Migrate all files from old callsign to new callsign
   Future<void> migrateCallsign(String oldCallsign, String newCallsign) async {
-    final oldLower = oldCallsign.toLowerCase();
     final newLower = newCallsign.toLowerCase();
 
     // Migrate template
     final template = await getTemplate(oldCallsign);
     if (template != null) {
-      final ext = template.path.split('.').last;
-      final newPath = '${_templatesDir.path}/$newLower.$ext';
+      final ext = p.extension(template.path);
+      final newPath = p.join(_templatesDir.path, '$newLower$ext');
       await template.rename(newPath);
     }
 
     // Migrate logo
     final logo = await getLogo(oldCallsign);
     if (logo != null) {
-      final ext = logo.path.split('.').last;
-      final newPath = '${_logosDir.path}/$newLower.$ext';
+      final ext = p.extension(logo.path);
+      final newPath = p.join(_logosDir.path, '$newLower$ext');
       await logo.rename(newPath);
     }
 
     // Migrate signature
     final signature = await getSignature(oldCallsign);
     if (signature != null) {
-      final ext = signature.path.split('.').last;
-      final newPath = '${_signaturesDir.path}/$newLower.$ext';
+      final ext = p.extension(signature.path);
+      final newPath = p.join(_signaturesDir.path, '$newLower$ext');
       await signature.rename(newPath);
     }
 
     // Migrate additional logos
     final additionalLogos = await getAdditionalLogos(oldCallsign);
     for (final addLogo in additionalLogos) {
-      final fileName = addLogo.path.split('/').last;
-      final ext = fileName.split('.').last;
+      final ext = p.extension(addLogo.path);
       final num = _extractLogoNumber(addLogo.path);
-      final newPath = '${_additionalLogosDir.path}/${newLower}_$num.$ext';
+      final newPath = p.join(_additionalLogosDir.path, '${newLower}_$num$ext');
       await addLogo.rename(newPath);
     }
   }
