@@ -356,6 +356,120 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     await _loadTemplateImage();
   }
 
+  Future<void> _showEditStationInfo() async {
+    if (_activeConfig == null) return;
+
+    final operatorInfo = _activeConfig!.operatorInfo;
+    final nameController = TextEditingController(text: operatorInfo.operatorName);
+    final streetController = TextEditingController(text: operatorInfo.street);
+    final cityController = TextEditingController(text: operatorInfo.city);
+    final countryController = TextEditingController(text: operatorInfo.country);
+    final locatorController = TextEditingController(text: operatorInfo.locator);
+    final emailController = TextEditingController(text: operatorInfo.email);
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Station Info'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Operator Name',
+                  hintText: 'e.g. Michael Linder',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: streetController,
+                decoration: const InputDecoration(
+                  labelText: 'Street Address',
+                  hintText: 'e.g. Musterstraße 55',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cityController,
+                decoration: const InputDecoration(
+                  labelText: 'City / QTH',
+                  hintText: 'e.g. 9611 Nötsch im Gailtal',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: countryController,
+                decoration: const InputDecoration(
+                  labelText: 'Country',
+                  hintText: 'e.g. Austria',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: locatorController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Grid Locator',
+                  hintText: 'e.g. JN66',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'e.g. oe8yml@example.at',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final newOperatorInfo = OperatorInfo(
+        operatorName: nameController.text,
+        street: streetController.text,
+        city: cityController.text,
+        country: countryController.text,
+        locator: locatorController.text.toUpperCase(),
+        email: emailController.text,
+      );
+
+      final updatedConfig = _activeConfig!.copyWith(
+        operatorInfo: newOperatorInfo,
+      );
+      await widget.storageService.updateConfig(updatedConfig);
+      setState(() {
+        _activeConfig = updatedConfig;
+      });
+
+      // Regenerate template with updated info
+      await _regenerateTemplate(Color(_activeConfig!.callsignColor));
+    }
+
+    nameController.dispose();
+    streetController.dispose();
+    cityController.dispose();
+    countryController.dispose();
+    locatorController.dispose();
+    emailController.dispose();
+  }
+
   Future<void> _exportCard() async {
     if (_activeConfig == null) return;
 
@@ -715,6 +829,90 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 label: 'Remarks',
                 controller: _remarksController,
                 hint: 'Thanks for the QSO! 73',
+              ),
+              const SizedBox(height: 24),
+
+              const Divider(color: Color(0xFF475569)),
+              const SizedBox(height: 24),
+
+              // Station Info section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Station Info',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _showEditStationInfo,
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Edit'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF3b82f6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Display current station info
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0f172a),
+                  border: Border.all(color: const Color(0xFF475569)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_activeConfig?.operatorInfo.operatorName.isNotEmpty ?? false)
+                      Text(
+                        _activeConfig!.operatorInfo.operatorName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    if (_activeConfig?.operatorInfo.street.isNotEmpty ?? false)
+                      Text(
+                        _activeConfig!.operatorInfo.street,
+                        style: const TextStyle(color: Color(0xFF94a3b8)),
+                      ),
+                    if (_activeConfig?.operatorInfo.city.isNotEmpty ?? false)
+                      Text(
+                        _activeConfig!.operatorInfo.city,
+                        style: const TextStyle(color: Color(0xFF94a3b8)),
+                      ),
+                    if (_activeConfig?.operatorInfo.country.isNotEmpty ?? false)
+                      Text(
+                        _activeConfig!.operatorInfo.country,
+                        style: const TextStyle(color: Color(0xFF94a3b8)),
+                      ),
+                    if (_activeConfig?.operatorInfo.locator.isNotEmpty ?? false)
+                      Text(
+                        'LOC: ${_activeConfig!.operatorInfo.locator}',
+                        style: const TextStyle(color: Color(0xFF64748b), fontSize: 12),
+                      ),
+                    if (_activeConfig?.operatorInfo.email.isNotEmpty ?? false)
+                      Text(
+                        _activeConfig!.operatorInfo.email,
+                        style: const TextStyle(color: Color(0xFF3b82f6), fontSize: 12),
+                      ),
+                    if ((_activeConfig?.operatorInfo.operatorName.isEmpty ?? true) &&
+                        (_activeConfig?.operatorInfo.street.isEmpty ?? true) &&
+                        (_activeConfig?.operatorInfo.city.isEmpty ?? true))
+                      const Text(
+                        'No station info configured',
+                        style: TextStyle(color: Color(0xFF64748b), fontStyle: FontStyle.italic),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
