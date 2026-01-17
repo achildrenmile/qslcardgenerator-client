@@ -94,7 +94,9 @@ class QslCardPainter extends CustomPainter {
 
   void _drawBackground(Canvas canvas, Size size) {
     if (backgroundImage != null) {
-      final paint = Paint();
+      final paint = Paint()
+        ..filterQuality = FilterQuality.high
+        ..isAntiAlias = true;
       canvas.drawImageRect(
         backgroundImage!,
         Rect.fromLTWH(
@@ -115,7 +117,9 @@ class QslCardPainter extends CustomPainter {
 
   void _drawTemplate(Canvas canvas, Size size) {
     if (templateImage != null) {
-      final paint = Paint();
+      final paint = Paint()
+        ..filterQuality = FilterQuality.high
+        ..isAntiAlias = true;
       canvas.drawImageRect(
         templateImage!,
         Rect.fromLTWH(
@@ -164,7 +168,9 @@ class QslCardPainter extends CustomPainter {
     final logoX = smallMargin * scaleX;
     final logoY = (logoZoneHeight * scaleY - scaledHeight) / 2;
 
-    final paint = Paint();
+    final paint = Paint()
+      ..filterQuality = FilterQuality.high
+      ..isAntiAlias = true;
     canvas.drawImageRect(
       logoImage!,
       Rect.fromLTWH(0, 0, logoWidth, logoHeight),
@@ -177,7 +183,9 @@ class QslCardPainter extends CustomPainter {
     if (additionalLogos.isEmpty) return;
 
     final count = additionalLogos.length;
-    final paint = Paint();
+    final paint = Paint()
+      ..filterQuality = FilterQuality.high
+      ..isAntiAlias = true;
 
     // Available space for additional logos
     final areaLeft = additionalLogosLeft * scaleX;
@@ -267,7 +275,9 @@ class QslCardPainter extends CustomPainter {
     final sigX = sigAreaLeft + (sigAreaWidth - scaledWidth) / 2;
     final sigY = sigAreaTop + (sigAreaHeight - scaledHeight) / 2;
 
-    final paint = Paint();
+    final paint = Paint()
+      ..filterQuality = FilterQuality.high
+      ..isAntiAlias = true;
     canvas.drawImageRect(
       signatureImage!,
       Rect.fromLTWH(0, 0, imgWidth, imgHeight),

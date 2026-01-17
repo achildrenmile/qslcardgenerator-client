@@ -45,18 +45,22 @@ class QslCardPreview extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: CustomPaint(
-            painter: QslCardPainter(
-              backgroundImage: backgroundImage,
-              templateImage: templateImage,
-              logoImage: logoImage,
-              signatureImage: signatureImage,
-              additionalLogos: additionalLogos,
-              qsoData: qsoData,
-              cardConfig: cardConfig,
-              scaleFactor: scaleFactor,
+          child: RepaintBoundary(
+            child: CustomPaint(
+              painter: QslCardPainter(
+                backgroundImage: backgroundImage,
+                templateImage: templateImage,
+                logoImage: logoImage,
+                signatureImage: signatureImage,
+                additionalLogos: additionalLogos,
+                qsoData: qsoData,
+                cardConfig: cardConfig,
+                scaleFactor: scaleFactor,
+              ),
+              size: Size.infinite,
+              isComplex: true,
+              willChange: false,
             ),
-            size: Size.infinite,
           ),
         ),
       ),
