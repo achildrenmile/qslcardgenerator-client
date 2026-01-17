@@ -161,7 +161,7 @@ class TemplateGenerator {
     // Box background
     canvas.drawRRect(
       RRect.fromRectAndRadius(boxRect, const Radius.circular(12)),
-      Paint()..color = bgColor.withValues(alpha: 0.85),
+      Paint()..color = bgColor.withOpacity(0.85),
     );
 
     // Subtle border
@@ -301,7 +301,7 @@ class TemplateGenerator {
     // White background
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(12)),
-      Paint()..color = bgColor.withValues(alpha: 0.90),
+      Paint()..color = bgColor.withOpacity(0.90),
     );
 
     // Subtle border
@@ -380,13 +380,13 @@ class TemplateGenerator {
     final cellRect = Rect.fromLTWH(left, top, width, height);
 
     // Cell background
-    canvas.drawRect(cellRect, Paint()..color = Colors.white.withValues(alpha: 0.5));
+    canvas.drawRect(cellRect, Paint()..color = Colors.white.withOpacity(0.5));
 
     // Cell border
     canvas.drawRect(
       cellRect,
       Paint()
-        ..color = borderColor.withValues(alpha: 0.5)
+        ..color = borderColor.withOpacity(0.5)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
@@ -406,7 +406,7 @@ class TemplateGenerator {
     canvas.drawLine(
       Offset(left + 20, top + height - 20),
       Offset(left + width - 20, top + height - 20),
-      Paint()..color = const Color(0xFF3b82f6).withValues(alpha: 0.6)..strokeWidth = 2,
+      Paint()..color = const Color(0xFF3b82f6).withOpacity(0.6)..strokeWidth = 2,
     );
   }
 
@@ -488,7 +488,7 @@ class TemplateGenerator {
     // Light background
     canvas.drawRRect(
       RRect.fromRectAndRadius(sigRect, const Radius.circular(8)),
-      Paint()..color = headerBgColor.withValues(alpha: 0.5),
+      Paint()..color = headerBgColor.withOpacity(0.5),
     );
 
     // Border
