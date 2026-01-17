@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/models.dart';
 import '../services/services.dart';
@@ -26,6 +27,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   final _exportService = ExportService();
   final _imagePicker = ImagePicker();
   final _templateGenerator = TemplateGenerator();
+  final _signatureGenerator = SignatureGenerator();
 
   // Form controllers
   final _callsignController = TextEditingController();
@@ -468,6 +470,52 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     countryController.dispose();
     locatorController.dispose();
     emailController.dispose();
+  }
+
+  Future<void> _showSignatureEditor() async {
+    if (_activeConfig == null) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => _SignatureEditorDialog(
+        activeConfig: _activeConfig!,
+        signatureGenerator: _signatureGenerator,
+        storageService: widget.storageService,
+        imagePicker: _imagePicker,
+        onSignatureSaved: () async {
+          await _loadSignatureImage();
+        },
+      ),
+    );
+  }
+
+  Future<void> _removeSignature() async {
+    if (_activeConfig == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Signature?'),
+        content: const Text('This will remove your signature from all QSL cards.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await widget.storageService.deleteSignature(_activeConfig!.callsign);
+      setState(() {
+        _signatureImage = null;
+      });
+    }
   }
 
   Future<void> _exportCard() async {
@@ -1013,16 +1061,100 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 uploadText: 'Upload Logo Image',
                 onPressed: _pickLogoImage,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // Signature
-              _buildImageButton(
-                label: 'Signature',
-                hasImage: _signatureImage != null,
-                loadedText: 'Signature Loaded',
-                uploadText: 'Upload Signature Image',
-                onPressed: _pickSignatureImage,
+              // Signature section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'SIGNATURE',
+                    style: TextStyle(
+                      color: Color(0xFF94a3b8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  if (_signatureImage != null)
+                    TextButton(
+                      onPressed: _removeSignature,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 0),
+                      ),
+                      child: const Text('Remove', style: TextStyle(fontSize: 12)),
+                    ),
+                ],
               ),
+              const SizedBox(height: 8),
+
+              // Signature preview or create button
+              if (_signatureImage != null)
+                InkWell(
+                  onTap: _showSignatureEditor,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFF22c55e)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 50,
+                          child: RawImage(
+                            image: _signatureImage,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle, color: Color(0xFF22c55e), size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              'Signature loaded - tap to change',
+                              style: TextStyle(color: Color(0xFF22c55e), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                InkWell(
+                  onTap: _showSignatureEditor,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0f172a),
+                      border: Border.all(color: const Color(0xFF475569)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Column(
+                      children: [
+                        Icon(Icons.draw, color: Color(0xFF3b82f6), size: 32),
+                        SizedBox(height: 8),
+                        Text(
+                          'Create Signature',
+                          style: TextStyle(color: Color(0xFF3b82f6), fontWeight: FontWeight.w500),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Upload image or type your name',
+                          style: TextStyle(color: Color(0xFF64748b), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
 
               // Additional Logos
@@ -1311,6 +1443,337 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// Signature Editor Dialog
+enum _SignatureMode { upload, typed }
+
+class _SignatureEditorDialog extends StatefulWidget {
+  final CardConfig activeConfig;
+  final SignatureGenerator signatureGenerator;
+  final StorageService storageService;
+  final ImagePicker imagePicker;
+  final VoidCallback onSignatureSaved;
+
+  const _SignatureEditorDialog({
+    required this.activeConfig,
+    required this.signatureGenerator,
+    required this.storageService,
+    required this.imagePicker,
+    required this.onSignatureSaved,
+  });
+
+  @override
+  State<_SignatureEditorDialog> createState() => _SignatureEditorDialogState();
+}
+
+class _SignatureEditorDialogState extends State<_SignatureEditorDialog> {
+  _SignatureMode _mode = _SignatureMode.upload;
+  File? _previewImage;
+  final _textController = TextEditingController();
+  bool _isGenerating = false;
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAndCropImage() async {
+    final result = await widget.imagePicker.pickImage(source: ImageSource.gallery);
+    if (result == null) return;
+
+    // Crop with 6:1 aspect ratio
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: result.path,
+      aspectRatio: const CropAspectRatio(ratioX: 6, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Signature',
+          toolbarColor: const Color(0xFF0f172a),
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.original,
+          lockAspectRatio: true,
+          hideBottomControls: false,
+          activeControlsWidgetColor: const Color(0xFF3b82f6),
+        ),
+        IOSUiSettings(
+          title: 'Crop Signature',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
+
+    if (croppedFile != null) {
+      setState(() {
+        _previewImage = File(croppedFile.path);
+      });
+    }
+  }
+
+  Future<void> _generateTypedSignature() async {
+    if (_textController.text.isEmpty) return;
+
+    setState(() => _isGenerating = true);
+
+    try {
+      final file = await widget.signatureGenerator.generateSignature(
+        text: _textController.text,
+        callsign: widget.activeConfig.callsign,
+        fontFamily: 'DancingScript',
+      );
+      setState(() {
+        _previewImage = file;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isGenerating = false);
+    }
+  }
+
+  Future<void> _saveSignature() async {
+    if (_previewImage == null) return;
+
+    await widget.storageService.saveSignature(
+      _previewImage!,
+      widget.activeConfig.callsign,
+    );
+    widget.onSignatureSaved();
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Create Signature'),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Format guidance
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFe0f2fe),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF0ea5e9)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Color(0xFF0369a1), size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Ideal Format',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0369a1),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '• PNG with transparent background\n'
+                      '• Wide aspect ratio (6:1 recommended)\n'
+                      '• Dark color for visibility on light card',
+                      style: TextStyle(color: Color(0xFF0369a1), fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Mode toggle
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildModeButton(
+                      mode: _SignatureMode.upload,
+                      icon: Icons.image,
+                      label: 'Upload Image',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildModeButton(
+                      mode: _SignatureMode.typed,
+                      icon: Icons.edit,
+                      label: 'Type Name',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Mode-specific content
+              if (_mode == _SignatureMode.upload) ...[
+                // Upload mode
+                OutlinedButton.icon(
+                  onPressed: _pickAndCropImage,
+                  icon: const Icon(Icons.add_photo_alternate),
+                  label: Text(_previewImage == null ? 'Select Image' : 'Change Image'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ] else ...[
+                // Typed mode
+                TextField(
+                  controller: _textController,
+                  decoration: const InputDecoration(
+                    labelText: 'Your Name',
+                    hintText: 'e.g. John Smith',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+
+                // Live preview of typed text
+                if (_textController.text.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Preview:',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _textController.text,
+                          style: const TextStyle(
+                            fontFamily: 'DancingScript',
+                            fontSize: 28,
+                            color: Color(0xFF1e293b),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 12),
+
+                // Generate button
+                ElevatedButton.icon(
+                  onPressed: _textController.text.isNotEmpty && !_isGenerating
+                      ? _generateTypedSignature
+                      : null,
+                  icon: _isGenerating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_fix_high),
+                  label: Text(_isGenerating ? 'Generating...' : 'Generate Signature Image'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ],
+
+              // Preview of generated/uploaded image
+              if (_previewImage != null) ...[
+                const SizedBox(height: 20),
+                const Text(
+                  'Ready to save:',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xFF22c55e), width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Image.file(
+                    _previewImage!,
+                    height: 60,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _previewImage != null ? _saveSignature : null,
+          child: const Text('Save Signature'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModeButton({
+    required _SignatureMode mode,
+    required IconData icon,
+    required String label,
+  }) {
+    final isSelected = _mode == mode;
+    return InkWell(
+      onTap: () => setState(() {
+        _mode = mode;
+        _previewImage = null; // Clear preview when switching modes
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF3b82f6) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF3b82f6) : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? Colors.white : Colors.grey,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
