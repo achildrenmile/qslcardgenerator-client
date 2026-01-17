@@ -1,29 +1,37 @@
 # QSL Card Generator Client
 
-> **⚠️ Work in Progress**: This application is under active development. Some features may be incomplete or unstable.
-
 Cross-platform offline QSL card generator for amateur radio operators.
 
 ## Features
 
-- Generate QSL cards offline on any platform
-- Real-time canvas preview
-- Custom background images
-- Station logo support
-- Signature support (upload image or generate from typed name)
-- Setup wizard for first-time configuration
-- Export to high-resolution PNG
-- Works on Windows, macOS, Linux, Android, and iOS
+- **Offline Operation** - No internet connection required
+- **Cross-Platform** - Windows, macOS, Linux, Android, and iOS
+- **Real-time Preview** - See your card as you build it
+- **Custom Backgrounds** - Use your own images
+- **Station Logo** - Add your personal or club logo
+- **Signature Support** - Upload image or generate from typed name
+- **Additional Logos** - Add up to 6 club/award logos
+- **Callsign Color** - Customize your callsign color
+- **High-Resolution Export** - Print-ready 300 DPI PNG output
+- **Setup Wizard** - Easy first-time configuration
 
-## Screenshots
+## Documentation
 
-*(Coming soon)*
+**[User Guide](docs/USER_GUIDE.md)** - Complete guide for using the application
 
 ## Installation
 
-### Pre-built releases
+### Download Pre-built Releases
 
-Download from the [Releases](https://github.com/achildrenmile/qslcardgenerator-client/releases) page.
+Download the latest release for your platform from the [Releases](https://github.com/achildrenmile/qslcardgenerator-client/releases) page:
+
+| Platform | Download |
+|----------|----------|
+| Windows | `qsl-card-generator-windows.zip` |
+| Linux | `qsl-card-generator-linux.tar.gz` |
+| macOS | `qsl-card-generator-macos.zip` |
+| Android | `app-arm64-v8a-release.apk` (most devices) |
+| iOS | `qsl-card-generator-ios.zip` |
 
 ### Build from source
 
