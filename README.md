@@ -2,18 +2,45 @@
 
 Cross-platform offline QSL card generator for amateur radio operators.
 
+[![Latest Release](https://img.shields.io/github/v/release/achildrenmile/qslcardgenerator-client?include_prereleases)](https://github.com/achildrenmile/qslcardgenerator-client/releases)
+[![License](https://img.shields.io/github/license/achildrenmile/qslcardgenerator-client)](LICENSE)
+
 ## Features
 
 - **Offline Operation** - No internet connection required
 - **Cross-Platform** - Windows, macOS, Linux, Android, and iOS
 - **Real-time Preview** - See your card as you build it
+- **Default Mountain Background** - Beautiful royalty-free landscape included
 - **Custom Backgrounds** - Use your own images
 - **Station Logo** - Add your personal or club logo
 - **Signature Support** - Upload image or generate from typed name
 - **Additional Logos** - Add up to 6 club/award logos
 - **Callsign Color** - Customize your callsign color
+- **Auto-Save Export** - Cards saved with callsign filename (e.g., `OE8CDC.png`)
+- **Smart Duplicates** - Automatic numbering for multiple QSOs (`OE8CDC(1).png`, `OE8CDC(2).png`)
+- **Quick Access** - Folder opens automatically after export
 - **High-Resolution Export** - Print-ready 300 DPI PNG output
 - **Setup Wizard** - Easy first-time configuration
+
+## Beta Status
+
+**Current version: v1.0.0-beta.5**
+
+| Platform | Status |
+|----------|--------|
+| Ubuntu 24.04 LTS | ✅ Tested |
+| Windows 11 | ✅ Tested |
+| macOS | 🧪 Needs testing |
+| Android | 🧪 Needs testing |
+| iOS | 🧪 Needs testing |
+
+### We Need Testers!
+
+Help us improve by testing on your platform and reporting issues:
+- **GitHub Issues:** https://github.com/achildrenmile/qslcardgenerator-client/issues
+- **Email:** oe8yml@rednil.at
+
+73 de OE8YML
 
 ## Documentation
 
