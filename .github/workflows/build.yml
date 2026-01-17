@@ -12,7 +12,7 @@ on:
         default: 'beta'
 
 env:
-  FLUTTER_VERSION: '3.38.0'
+  FLUTTER_VERSION: '3.38.7'
 
 jobs:
   build-linux:
