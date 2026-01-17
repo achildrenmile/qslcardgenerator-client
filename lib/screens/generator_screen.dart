@@ -1478,8 +1478,8 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<File?>(
-                    value: _selectedBackground,
+                  child: DropdownButton<String>(
+                    value: _selectedBackground?.path,
                     hint: const Text(
                       'Select a background...',
                       style: TextStyle(color: Color(0xFF64748b)),
@@ -1487,17 +1487,17 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                     dropdownColor: const Color(0xFF1e293b),
                     isExpanded: true,
                     items: [
-                      const DropdownMenuItem<File?>(
-                        value: null,
+                      const DropdownMenuItem<String>(
+                        value: '',
                         child: Text(
                           'No background (white)',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
                       ..._backgrounds.map((file) {
-                        final name = file.path.split('/').last;
-                        return DropdownMenuItem<File?>(
-                          value: file,
+                        final name = file.path.split(Platform.pathSeparator).last;
+                        return DropdownMenuItem<String>(
+                          value: file.path,
                           child: Text(
                             name,
                             style: const TextStyle(color: Colors.white),
@@ -1505,8 +1505,12 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                         );
                       }),
                     ],
-                    onChanged: (file) {
-                      if (file != null) {
+                    onChanged: (path) {
+                      if (path != null && path.isNotEmpty) {
+                        final file = _backgrounds.firstWhere(
+                          (f) => f.path == path,
+                          orElse: () => File(path),
+                        );
                         _loadBackgroundImage(file);
                       } else {
                         setState(() {
