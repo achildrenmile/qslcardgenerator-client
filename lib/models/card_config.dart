@@ -195,8 +195,12 @@ class CardConfig {
   final OperatorInfo operatorInfo;
   final String? templatePath;
   final String? logoPath;
+  final int callsignColor; // Color value as int (default: dark blue 0xFF1e3a5f)
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  // Default callsign color (dark blue matching the template)
+  static const int defaultCallsignColor = 0xFF1e3a5f;
 
   CardConfig({
     this.id,
@@ -207,9 +211,11 @@ class CardConfig {
     OperatorInfo? operatorInfo,
     this.templatePath,
     this.logoPath,
+    int? callsignColor,
     DateTime? createdAt,
     this.updatedAt,
   })  : operatorInfo = operatorInfo ?? const OperatorInfo(),
+        callsignColor = callsignColor ?? defaultCallsignColor,
         createdAt = createdAt ?? DateTime.now();
 
   factory CardConfig.fromJson(Map<String, dynamic> json) {
@@ -224,6 +230,7 @@ class CardConfig {
           : const OperatorInfo(),
       templatePath: json['templatePath'] as String?,
       logoPath: json['logoPath'] as String?,
+      callsignColor: json['callsignColor'] as int?,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt:
           json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
@@ -239,6 +246,7 @@ class CardConfig {
         'operatorInfo': operatorInfo.toJson(),
         'templatePath': templatePath,
         'logoPath': logoPath,
+        'callsignColor': callsignColor,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
       };
@@ -252,6 +260,7 @@ class CardConfig {
     OperatorInfo? operatorInfo,
     String? templatePath,
     String? logoPath,
+    int? callsignColor,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -264,6 +273,7 @@ class CardConfig {
       operatorInfo: operatorInfo ?? this.operatorInfo,
       templatePath: templatePath ?? this.templatePath,
       logoPath: logoPath ?? this.logoPath,
+      callsignColor: callsignColor ?? this.callsignColor,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

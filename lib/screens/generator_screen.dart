@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/models.dart';
 import '../services/services.dart';
@@ -24,6 +25,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   final _formKey = GlobalKey<FormState>();
   final _exportService = ExportService();
   final _imagePicker = ImagePicker();
+  final _templateGenerator = TemplateGenerator();
 
   // Form controllers
   final _callsignController = TextEditingController();
@@ -289,6 +291,69 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       await widget.storageService.saveTemplate(file, _activeConfig!.callsign);
       await _loadTemplateImage();
     }
+  }
+
+  Future<void> _showCallsignColorPicker() async {
+    if (_activeConfig == null) return;
+
+    Color currentColor = Color(_activeConfig!.callsignColor);
+    Color pickedColor = currentColor;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Callsign Color'),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: currentColor,
+            onColorChanged: (color) => pickedColor = color,
+            enableAlpha: false,
+            labelTypes: const [],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Update config with new color
+              final updatedConfig = _activeConfig!.copyWith(
+                callsignColor: pickedColor.value,
+              );
+              await widget.storageService.updateConfig(updatedConfig);
+              setState(() {
+                _activeConfig = updatedConfig;
+              });
+              // Regenerate template with new color
+              await _regenerateTemplate(pickedColor);
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _regenerateTemplate(Color callsignColor) async {
+    if (_activeConfig == null) return;
+
+    final operatorInfo = _activeConfig!.operatorInfo;
+    await _templateGenerator.generateTemplate(
+      callsign: _activeConfig!.callsign,
+      operatorName: operatorInfo.operatorName,
+      street: operatorInfo.street,
+      city: operatorInfo.city,
+      country: operatorInfo.country,
+      locator: operatorInfo.locator,
+      email: operatorInfo.email,
+      callsignColor: callsignColor,
+    );
+
+    // Reload the template image
+    await _loadTemplateImage();
   }
 
   Future<void> _exportCard() async {
@@ -650,6 +715,71 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 label: 'Remarks',
                 controller: _remarksController,
                 hint: 'Thanks for the QSO! 73',
+              ),
+              const SizedBox(height: 24),
+
+              const Divider(color: Color(0xFF475569)),
+              const SizedBox(height: 24),
+
+              // Callsign Style section
+              const Text(
+                'Callsign Style',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Callsign color picker
+              Row(
+                children: [
+                  const Text(
+                    'CALLSIGN COLOR',
+                    style: TextStyle(
+                      color: Color(0xFF94a3b8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _showCallsignColorPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0f172a),
+                          border: Border.all(color: const Color(0xFF475569)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Color(_activeConfig?.callsignColor ?? CardConfig.defaultCallsignColor),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFF475569)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '#${(_activeConfig?.callsignColor ?? CardConfig.defaultCallsignColor).toRadixString(16).substring(2).toUpperCase()}',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            const Icon(Icons.color_lens, color: Color(0xFF94a3b8)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 

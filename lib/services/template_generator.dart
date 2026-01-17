@@ -54,6 +54,7 @@ class TemplateGenerator {
     required String country,
     required String locator,
     required String email,
+    Color? callsignColor,
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -67,6 +68,7 @@ class TemplateGenerator {
       country: country,
       locator: locator,
       email: email,
+      callsignColor: callsignColor ?? const Color(0xFFDC2626),
     );
 
     final picture = recorder.endRecording();
@@ -98,6 +100,7 @@ class TemplateGenerator {
     required String country,
     required String locator,
     required String email,
+    required Color callsignColor,
   }) {
     // Transparent background
     canvas.drawRect(
@@ -106,7 +109,7 @@ class TemplateGenerator {
     );
 
     // Draw callsign in top-right area
-    _drawCallsign(canvas, callsign);
+    _drawCallsign(canvas, callsign, callsignColor);
 
     // Draw address section on the left
     _drawAddressSection(canvas, operatorName, street, city, country, locator, email);
@@ -115,7 +118,7 @@ class TemplateGenerator {
     _drawQsoDataGrid(canvas);
   }
 
-  void _drawCallsign(Canvas canvas, String callsign) {
+  void _drawCallsign(Canvas canvas, String callsign, Color color) {
     // Position callsign to the right, ~100px from right edge (right-aligned)
     const callsignX = cardWidth - 100;
     const callsignY = topBandHeight / 2;
@@ -125,7 +128,7 @@ class TemplateGenerator {
       callsign.toUpperCase(),
       const Offset(callsignX, callsignY),
       380,
-      const Color(0xFFDC2626),
+      color,
       fontWeight: FontWeight.bold,
       align: TextAlign.right,
     );
