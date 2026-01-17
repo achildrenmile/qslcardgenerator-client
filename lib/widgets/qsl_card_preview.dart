@@ -8,6 +8,7 @@ class QslCardPreview extends StatelessWidget {
   final ui.Image? templateImage;
   final ui.Image? logoImage;
   final ui.Image? signatureImage;
+  final List<ui.Image> additionalLogos;
   final QsoData qsoData;
   final CardConfig cardConfig;
   final double scaleFactor;
@@ -18,6 +19,7 @@ class QslCardPreview extends StatelessWidget {
     this.templateImage,
     this.logoImage,
     this.signatureImage,
+    this.additionalLogos = const [],
     required this.qsoData,
     required this.cardConfig,
     this.scaleFactor = 0.4,
@@ -49,6 +51,7 @@ class QslCardPreview extends StatelessWidget {
               templateImage: templateImage,
               logoImage: logoImage,
               signatureImage: signatureImage,
+              additionalLogos: additionalLogos,
               qsoData: qsoData,
               cardConfig: cardConfig,
               scaleFactor: scaleFactor,

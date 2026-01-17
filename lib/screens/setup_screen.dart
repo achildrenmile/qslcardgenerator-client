@@ -53,6 +53,10 @@ class _SetupScreenState extends State<SetupScreen> {
   final _signatureTextController = TextEditingController();
   final String _selectedFont = 'DancingScript';
 
+  // Additional logos state (max 6)
+  final List<File> _additionalLogos = [];
+  static const int _maxAdditionalLogos = 6;
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -177,6 +181,28 @@ class _SetupScreenState extends State<SetupScreen> {
     });
   }
 
+  Future<void> _pickAdditionalLogo() async {
+    if (_additionalLogos.length >= _maxAdditionalLogos) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 6 additional logos allowed')),
+      );
+      return;
+    }
+
+    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (result != null) {
+      setState(() {
+        _additionalLogos.add(File(result.path));
+      });
+    }
+  }
+
+  void _removeAdditionalLogo(int index) {
+    setState(() {
+      _additionalLogos.removeAt(index);
+    });
+  }
+
   Future<void> _completeSetup() async {
     if (_callsignController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -245,6 +271,14 @@ class _SetupScreenState extends State<SetupScreen> {
       if (_signatureImage != null) {
         setState(() => _loadingMessage = 'Saving signature...');
         await widget.storageService.saveSignature(_signatureImage!, callsign);
+      }
+
+      // Save additional logos if provided
+      if (_additionalLogos.isNotEmpty) {
+        setState(() => _loadingMessage = 'Saving additional logos...');
+        for (int i = 0; i < _additionalLogos.length; i++) {
+          await widget.storageService.saveAdditionalLogo(_additionalLogos[i], callsign, i + 1);
+        }
       }
 
       // Mark setup as complete
@@ -921,6 +955,122 @@ class _SetupScreenState extends State<SetupScreen> {
                 ],
               ),
             ],
+          ],
+
+          const SizedBox(height: 24),
+
+          const Divider(color: Color(0xFF475569)),
+          const SizedBox(height: 24),
+
+          // Additional logos section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Additional Logos (Optional)',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                '${_additionalLogos.length}/$_maxAdditionalLogos',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF94a3b8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Add club logos, sponsor logos, or award badges. They will appear below your address on the QSL card.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF94a3b8),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Additional logos grid
+          if (_additionalLogos.isNotEmpty)
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _additionalLogos.asMap().entries.map((entry) {
+                return Stack(
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF475569)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(7),
+                        child: Image.file(
+                          entry.value,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: InkWell(
+                        onTap: () => _removeAdditionalLogo(entry.key),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+
+          if (_additionalLogos.length < _maxAdditionalLogos) ...[
+            if (_additionalLogos.isNotEmpty) const SizedBox(height: 12),
+            InkWell(
+              onTap: _pickAdditionalLogo,
+              child: Container(
+                height: 80,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF475569)),
+                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFF1e293b),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.add_circle_outline,
+                        size: 24,
+                        color: Color(0xFF3b82f6),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _additionalLogos.isEmpty ? 'Add Logo' : 'Add Another Logo',
+                        style: const TextStyle(color: Color(0xFF3b82f6)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
 
           const SizedBox(height: 24),

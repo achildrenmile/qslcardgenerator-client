@@ -7,6 +7,7 @@ class QslCardPainter extends CustomPainter {
   final ui.Image? templateImage;
   final ui.Image? logoImage;
   final ui.Image? signatureImage;
+  final List<ui.Image> additionalLogos;
   final QsoData qsoData;
   final CardConfig cardConfig;
   final double scaleFactor;
@@ -47,11 +48,18 @@ class QslCardPainter extends CustomPainter {
   static const double signatureHeight = 180.0;  // 1.8x original size
   static const double signatureLineY = row5Y + signatureHeight - 35;  // 2969
 
+  // Additional logos zone (below address, left side)
+  static const double additionalLogosTop = 1800;  // Start below typical address box
+  static const double additionalLogosBottom = fullHeight - 100;  // Near bottom with margin
+  static const double additionalLogosLeft = 80;
+  static const double additionalLogosRight = leftZoneEnd - 80;
+
   QslCardPainter({
     this.backgroundImage,
     this.templateImage,
     this.logoImage,
     this.signatureImage,
+    this.additionalLogos = const [],
     required this.qsoData,
     required this.cardConfig,
     this.scaleFactor = 1.0,
@@ -71,13 +79,16 @@ class QslCardPainter extends CustomPainter {
     // Draw logo in header (layer 3)
     _drawLogo(canvas, size, scaleX, scaleY);
 
-    // Draw signature in footer (layer 4)
+    // Draw additional logos below address (layer 4)
+    _drawAdditionalLogos(canvas, size, scaleX, scaleY);
+
+    // Draw signature in footer (layer 5)
     _drawSignature(canvas, size, scaleX, scaleY);
 
-    // Draw QSO data text at configured positions (layer 5)
+    // Draw QSO data text at configured positions (layer 6)
     _drawQsoData(canvas, size, scaleX, scaleY);
 
-    // Draw checkmarks for PSE/TNX QSL (layer 6)
+    // Draw checkmarks for PSE/TNX QSL (layer 7)
     _drawCheckmarks(canvas, size, scaleX, scaleY);
   }
 
@@ -160,6 +171,78 @@ class QslCardPainter extends CustomPainter {
       Rect.fromLTWH(logoX, logoY, scaledWidth, scaledHeight),
       paint,
     );
+  }
+
+  void _drawAdditionalLogos(Canvas canvas, Size size, double scaleX, double scaleY) {
+    if (additionalLogos.isEmpty) return;
+
+    final count = additionalLogos.length;
+    final paint = Paint();
+
+    // Available space for additional logos
+    final areaLeft = additionalLogosLeft * scaleX;
+    final areaRight = additionalLogosRight * scaleX;
+    final areaTop = additionalLogosTop * scaleY;
+    final areaBottom = additionalLogosBottom * scaleY;
+    final areaWidth = areaRight - areaLeft;
+    final areaHeight = areaBottom - areaTop;
+
+    // Calculate grid layout based on number of logos
+    int cols, rows;
+    if (count <= 2) {
+      cols = count;
+      rows = 1;
+    } else if (count <= 4) {
+      cols = 2;
+      rows = (count + 1) ~/ 2;
+    } else {
+      cols = 3;
+      rows = (count + 2) ~/ 3;
+    }
+
+    // Calculate cell size with padding
+    const cellPadding = 20.0;
+    final cellWidth = (areaWidth - (cols - 1) * cellPadding * scaleX) / cols;
+    final cellHeight = (areaHeight - (rows - 1) * cellPadding * scaleY) / rows;
+
+    // Draw each logo
+    for (int i = 0; i < count; i++) {
+      final logo = additionalLogos[i];
+      final col = i % cols;
+      final row = i ~/ cols;
+
+      // Cell position
+      final cellX = areaLeft + col * (cellWidth + cellPadding * scaleX);
+      final cellY = areaTop + row * (cellHeight + cellPadding * scaleY);
+
+      // Scale logo to fit cell while maintaining aspect ratio
+      final imgWidth = logo.width.toDouble();
+      final imgHeight = logo.height.toDouble();
+      final imgAspect = imgWidth / imgHeight;
+      final cellAspect = cellWidth / cellHeight;
+
+      double scaledWidth, scaledHeight;
+      if (imgAspect > cellAspect) {
+        // Image is wider than cell
+        scaledWidth = cellWidth;
+        scaledHeight = cellWidth / imgAspect;
+      } else {
+        // Image is taller than cell
+        scaledHeight = cellHeight;
+        scaledWidth = cellHeight * imgAspect;
+      }
+
+      // Center logo in cell
+      final logoX = cellX + (cellWidth - scaledWidth) / 2;
+      final logoY = cellY + (cellHeight - scaledHeight) / 2;
+
+      canvas.drawImageRect(
+        logo,
+        Rect.fromLTWH(0, 0, imgWidth, imgHeight),
+        Rect.fromLTWH(logoX, logoY, scaledWidth, scaledHeight),
+        paint,
+      );
+    }
   }
 
   void _drawSignature(Canvas canvas, Size size, double scaleX, double scaleY) {
@@ -421,6 +504,7 @@ class QslCardPainter extends CustomPainter {
         oldDelegate.templateImage != templateImage ||
         oldDelegate.logoImage != logoImage ||
         oldDelegate.signatureImage != signatureImage ||
+        oldDelegate.additionalLogos.length != additionalLogos.length ||
         oldDelegate.qsoData != qsoData ||
         oldDelegate.cardConfig != cardConfig ||
         oldDelegate.scaleFactor != scaleFactor;

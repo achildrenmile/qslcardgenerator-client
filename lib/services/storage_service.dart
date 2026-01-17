@@ -14,6 +14,7 @@ class StorageService {
   late Directory _backgroundsDir;
   late Directory _templatesDir;
   late Directory _logosDir;
+  late Directory _additionalLogosDir;
   late Directory _signaturesDir;
 
   Future<void> init() async {
@@ -23,6 +24,7 @@ class StorageService {
     _backgroundsDir = Directory('${_appDir.path}/qsl_backgrounds');
     _templatesDir = Directory('${_appDir.path}/qsl_templates');
     _logosDir = Directory('${_appDir.path}/qsl_logos');
+    _additionalLogosDir = Directory('${_appDir.path}/qsl_additional_logos');
     _signaturesDir = Directory('${_appDir.path}/qsl_signatures');
 
     if (!await _backgroundsDir.exists()) {
@@ -33,6 +35,9 @@ class StorageService {
     }
     if (!await _logosDir.exists()) {
       await _logosDir.create(recursive: true);
+    }
+    if (!await _additionalLogosDir.exists()) {
+      await _additionalLogosDir.create(recursive: true);
     }
     if (!await _signaturesDir.exists()) {
       await _signaturesDir.create(recursive: true);
@@ -226,6 +231,67 @@ class StorageService {
       }
     }
     return null;
+  }
+
+  // Additional Logos Management (club logos, sponsor logos, etc.)
+  // Max 6 additional logos per callsign, stored as {callsign}_1.png, {callsign}_2.png, etc.
+
+  Future<List<File>> getAdditionalLogos(String callsign) async {
+    final lowerCallsign = callsign.toLowerCase();
+    final List<File> logos = [];
+
+    final files = await _additionalLogosDir.list().toList();
+    for (final file in files.whereType<File>()) {
+      final fileName = file.path.split('/').last;
+      if (fileName.startsWith('${lowerCallsign}_') && _isImageFile(file.path)) {
+        logos.add(file);
+      }
+    }
+
+    // Sort by number suffix
+    logos.sort((a, b) {
+      final aNum = _extractLogoNumber(a.path);
+      final bNum = _extractLogoNumber(b.path);
+      return aNum.compareTo(bNum);
+    });
+
+    return logos;
+  }
+
+  int _extractLogoNumber(String path) {
+    final fileName = path.split('/').last;
+    final baseName = fileName.split('.').first;
+    final parts = baseName.split('_');
+    if (parts.length >= 2) {
+      return int.tryParse(parts.last) ?? 0;
+    }
+    return 0;
+  }
+
+  Future<File> saveAdditionalLogo(File sourceFile, String callsign, int index) async {
+    final ext = sourceFile.path.split('.').last;
+    final destPath = '${_additionalLogosDir.path}/${callsign.toLowerCase()}_$index.$ext';
+    return sourceFile.copy(destPath);
+  }
+
+  Future<void> deleteAdditionalLogo(String callsign, int index) async {
+    final logos = await getAdditionalLogos(callsign);
+    final lowerCallsign = callsign.toLowerCase();
+
+    for (final logo in logos) {
+      final fileName = logo.path.split('/').last;
+      if (fileName.startsWith('${lowerCallsign}_$index.')) {
+        await logo.delete();
+        break;
+      }
+    }
+  }
+
+  Future<void> deleteAllAdditionalLogos(String callsign) async {
+    final logos = await getAdditionalLogos(callsign);
+    for (final logo in logos) {
+      await logo.delete();
+    }
   }
 
   bool _isImageFile(String path) {

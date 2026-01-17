@@ -51,6 +51,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   ui.Image? _templateImage;
   ui.Image? _logoImage;
   ui.Image? _signatureImage;
+  List<ui.Image> _additionalLogos = [];
   bool _isLoading = true;
 
   @override
@@ -88,6 +89,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       await _loadTemplateImage();
       await _loadLogoImage();
       await _loadSignatureImage();
+      await _loadAdditionalLogos();
     }
 
     // Load first background by default if available
@@ -146,6 +148,28 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
         await widget.storageService.deleteSignature(_activeConfig!.callsign);
       }
     }
+  }
+
+  Future<void> _loadAdditionalLogos() async {
+    if (_activeConfig == null) return;
+
+    final logoFiles = await widget.storageService.getAdditionalLogos(_activeConfig!.callsign);
+    final List<ui.Image> loadedLogos = [];
+
+    for (final file in logoFiles) {
+      try {
+        final image = await _exportService.loadImage(file);
+        if (image != null) {
+          loadedLogos.add(image);
+        }
+      } catch (e) {
+        debugPrint('Invalid additional logo file, skipping: $e');
+      }
+    }
+
+    setState(() {
+      _additionalLogos = loadedLogos;
+    });
   }
 
   Future<void> _pickLogoImage() async {
@@ -259,6 +283,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       templateImage: _templateImage,
       logoImage: _logoImage,
       signatureImage: _signatureImage,
+      additionalLogos: _additionalLogos,
       qsoData: _qsoData,
       cardConfig: _activeConfig!,
       width: width,
@@ -420,6 +445,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                     templateImage: _templateImage,
                     logoImage: _logoImage,
                     signatureImage: _signatureImage,
+                    additionalLogos: _additionalLogos,
                     qsoData: _qsoData,
                     cardConfig: _activeConfig!,
                   )
