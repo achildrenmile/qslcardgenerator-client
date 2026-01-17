@@ -1,9 +1,49 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:window_manager/window_manager.dart';
 import 'services/services.dart';
 import 'screens/screens.dart';
 
+Future<String?> _extractIcon() async {
+  try {
+    final byteData = await rootBundle.load('assets/icon/app_icon.png');
+    final appDir = await getApplicationSupportDirectory();
+    final iconFile = File('${appDir.path}/app_icon.png');
+    await iconFile.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+    return iconFile.path;
+  } catch (e) {
+    debugPrint('Failed to extract icon: $e');
+    return null;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize window manager for desktop platforms
+  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+
+    // Extract icon before showing window
+    final iconPath = await _extractIcon();
+
+    const windowOptions = WindowOptions(
+      size: Size(1280, 720),
+      minimumSize: Size(800, 600),
+      center: true,
+      title: 'QSL Card Generator',
+    );
+
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      if (iconPath != null) {
+        await windowManager.setIcon(iconPath);
+      }
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
 
   // Initialize storage service
   final storageService = StorageService();

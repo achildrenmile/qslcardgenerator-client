@@ -28,6 +28,9 @@ dependencies:
   # UI components
   flutter_colorpicker: ^1.1.0
 
+  # Desktop window management
+  window_manager: ^0.4.3
+
   # Internationalization
   intl: ^0.20.2
   flutter_localizations:
@@ -37,12 +40,34 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#1e3a5f"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  linux:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/fonts/
+    - assets/icon/
 
   fonts:
     - family: DancingScript
