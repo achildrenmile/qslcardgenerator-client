@@ -13,6 +13,8 @@ class StorageService {
   late Directory _appDir;
   late Directory _backgroundsDir;
   late Directory _templatesDir;
+  late Directory _logosDir;
+  late Directory _signaturesDir;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -20,12 +22,20 @@ class StorageService {
 
     _backgroundsDir = Directory('${_appDir.path}/qsl_backgrounds');
     _templatesDir = Directory('${_appDir.path}/qsl_templates');
+    _logosDir = Directory('${_appDir.path}/qsl_logos');
+    _signaturesDir = Directory('${_appDir.path}/qsl_signatures');
 
     if (!await _backgroundsDir.exists()) {
       await _backgroundsDir.create(recursive: true);
     }
     if (!await _templatesDir.exists()) {
       await _templatesDir.create(recursive: true);
+    }
+    if (!await _logosDir.exists()) {
+      await _logosDir.create(recursive: true);
+    }
+    if (!await _signaturesDir.exists()) {
+      await _signaturesDir.create(recursive: true);
     }
   }
 
@@ -89,6 +99,8 @@ class StorageService {
   // Background Image Management
   Directory get backgroundsDirectory => _backgroundsDir;
   Directory get templatesDirectory => _templatesDir;
+  Directory get logosDirectory => _logosDir;
+  Directory get signaturesDirectory => _signaturesDir;
 
   Future<List<File>> getBackgrounds() async {
     final files = await _backgroundsDir.list().toList();
@@ -126,6 +138,94 @@ class StorageService {
     final ext = sourceFile.path.split('.').last;
     final destPath = '${_templatesDir.path}/${callsign.toLowerCase()}.$ext';
     return sourceFile.copy(destPath);
+  }
+
+  // Logo Image Management
+  Future<List<File>> getLogos() async {
+    final files = await _logosDir.list().toList();
+    return files
+        .whereType<File>()
+        .where((f) => _isImageFile(f.path))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+  }
+
+  Future<File> saveLogo(File sourceFile, String callsign) async {
+    final ext = sourceFile.path.split('.').last;
+    final destPath = '${_logosDir.path}/${callsign.toLowerCase()}.$ext';
+    return sourceFile.copy(destPath);
+  }
+
+  Future<void> deleteLogo(String callsign) async {
+    final logos = await getLogos();
+    for (final logo in logos) {
+      final fileName = logo.path.split('/').last;
+      final baseName = fileName.split('.').first;
+      if (baseName == callsign.toLowerCase()) {
+        await logo.delete();
+        break;
+      }
+    }
+  }
+
+  Future<File?> getLogo(String callsign) async {
+    final logos = await getLogos();
+    final lowerCallsign = callsign.toLowerCase();
+
+    for (final logo in logos) {
+      final fileName = logo.path.split('/').last;
+      final baseName = fileName.split('.').first;
+      if (baseName == lowerCallsign) {
+        return logo;
+      }
+    }
+    return null;
+  }
+
+  // Signature Image Management
+  Future<List<File>> getSignatures() async {
+    final files = await _signaturesDir.list().toList();
+    return files
+        .whereType<File>()
+        .where((f) => _isImageFile(f.path))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+  }
+
+  Future<File> saveSignature(File sourceFile, String callsign) async {
+    final ext = sourceFile.path.split('.').last;
+    final destPath = '${_signaturesDir.path}/${callsign.toLowerCase()}.$ext';
+    // Don't copy if source and destination are the same (e.g., from SignatureGenerator)
+    if (sourceFile.path == destPath) {
+      return sourceFile;
+    }
+    return sourceFile.copy(destPath);
+  }
+
+  Future<void> deleteSignature(String callsign) async {
+    final signatures = await getSignatures();
+    for (final sig in signatures) {
+      final fileName = sig.path.split('/').last;
+      final baseName = fileName.split('.').first;
+      if (baseName == callsign.toLowerCase()) {
+        await sig.delete();
+        break;
+      }
+    }
+  }
+
+  Future<File?> getSignature(String callsign) async {
+    final signatures = await getSignatures();
+    final lowerCallsign = callsign.toLowerCase();
+
+    for (final sig in signatures) {
+      final fileName = sig.path.split('/').last;
+      final baseName = fileName.split('.').first;
+      if (baseName == lowerCallsign) {
+        return sig;
+      }
+    }
+    return null;
   }
 
   bool _isImageFile(String path) {

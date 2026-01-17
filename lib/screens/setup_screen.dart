@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import '../models/models.dart';
 import '../services/services.dart';
+
+enum SignatureMode { upload, typed }
 
 class SetupScreen extends StatefulWidget {
   final StorageService storageService;
@@ -22,6 +25,7 @@ class _SetupScreenState extends State<SetupScreen> {
   final _pageController = PageController();
   final _imagePicker = ImagePicker();
   final _templateGenerator = TemplateGenerator();
+  final _signatureGenerator = SignatureGenerator();
 
   int _currentStep = 0;
   final int _totalSteps = 3;
@@ -39,8 +43,15 @@ class _SetupScreenState extends State<SetupScreen> {
   final _emailController = TextEditingController();
 
   final List<File> _backgroundImages = [];
+  File? _logoImage;
   bool _isLoading = false;
   String _loadingMessage = '';
+
+  // Signature state
+  SignatureMode _signatureMode = SignatureMode.upload;
+  File? _signatureImage;
+  final _signatureTextController = TextEditingController();
+  final String _selectedFont = 'DancingScript';
 
   @override
   void dispose() {
@@ -53,6 +64,7 @@ class _SetupScreenState extends State<SetupScreen> {
     _countryController.dispose();
     _locatorController.dispose();
     _emailController.dispose();
+    _signatureTextController.dispose();
     super.dispose();
   }
 
@@ -87,6 +99,82 @@ class _SetupScreenState extends State<SetupScreen> {
 
   void _removeBackground(int index) {
     setState(() => _backgroundImages.removeAt(index));
+  }
+
+  Future<void> _pickLogoImage() async {
+    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (result != null) {
+      setState(() {
+        _logoImage = File(result.path);
+      });
+    }
+  }
+
+  void _removeLogo() {
+    setState(() => _logoImage = null);
+  }
+
+  Future<void> _pickSignatureImage() async {
+    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (result != null) {
+      // Crop the image with 6:1 aspect ratio
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: result.path,
+        aspectRatio: const CropAspectRatio(ratioX: 6, ratioY: 1),
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Signature',
+            toolbarColor: const Color(0xFF0f172a),
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+            activeControlsWidgetColor: const Color(0xFF3b82f6),
+          ),
+          IOSUiSettings(
+            title: 'Crop Signature',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+
+      if (croppedFile != null) {
+        setState(() {
+          _signatureImage = File(croppedFile.path);
+        });
+      }
+    }
+  }
+
+  Future<void> _generateTypedSignature() async {
+    if (_signatureTextController.text.isEmpty || _callsignController.text.isEmpty) {
+      return;
+    }
+
+    try {
+      final file = await _signatureGenerator.generateSignature(
+        text: _signatureTextController.text,
+        callsign: _callsignController.text,
+        fontFamily: _selectedFont,
+      );
+      setState(() {
+        _signatureImage = file;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error generating signature: $e')),
+        );
+      }
+    }
+  }
+
+  void _removeSignature() {
+    setState(() {
+      _signatureImage = null;
+      _signatureTextController.clear();
+    });
   }
 
   Future<void> _completeSetup() async {
@@ -137,6 +225,7 @@ class _SetupScreenState extends State<SetupScreen> {
         street: _streetController.text,
         city: _cityController.text,
         country: _countryController.text,
+        locator: _locatorController.text.toUpperCase(),
         email: _emailController.text,
       );
 
@@ -144,6 +233,18 @@ class _SetupScreenState extends State<SetupScreen> {
       setState(() => _loadingMessage = 'Saving backgrounds...');
       for (final bg in _backgroundImages) {
         await widget.storageService.saveBackground(bg);
+      }
+
+      // Save logo if provided
+      if (_logoImage != null) {
+        setState(() => _loadingMessage = 'Saving logo...');
+        await widget.storageService.saveLogo(_logoImage!, callsign);
+      }
+
+      // Save signature if provided
+      if (_signatureImage != null) {
+        setState(() => _loadingMessage = 'Saving signature...');
+        await widget.storageService.saveSignature(_signatureImage!, callsign);
       }
 
       // Mark setup as complete
@@ -418,6 +519,410 @@ class _SetupScreenState extends State<SetupScreen> {
             hint: 'e.g. JN66',
             textCapitalization: TextCapitalization.characters,
           ),
+          const SizedBox(height: 24),
+
+          const Divider(color: Color(0xFF475569)),
+          const SizedBox(height: 24),
+
+          // Logo section
+          const Text(
+            'Station Logo (Optional)',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Add your club logo or personal station logo. It will appear on the left side of your QSL card.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF94a3b8),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (_logoImage != null)
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    _logoImage!,
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: InkWell(
+                    onTap: _removeLogo,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            InkWell(
+              onTap: _pickLogoImage,
+              child: Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF475569)),
+                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFF1e293b),
+                ),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_photo_alternate,
+                        size: 32,
+                        color: Color(0xFF3b82f6),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Add Logo Image',
+                        style: TextStyle(color: Color(0xFF3b82f6)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          const Divider(color: Color(0xFF475569)),
+          const SizedBox(height: 24),
+
+          // Signature section
+          const Text(
+            'Signature (Optional)',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Add your signature to appear on QSL cards. You can upload an image or type your name.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF94a3b8),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Mode toggle
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _signatureMode = SignatureMode.upload),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _signatureMode == SignatureMode.upload
+                          ? const Color(0xFF3b82f6)
+                          : const Color(0xFF1e293b),
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(8),
+                      ),
+                      border: Border.all(
+                        color: _signatureMode == SignatureMode.upload
+                            ? const Color(0xFF3b82f6)
+                            : const Color(0xFF475569),
+                      ),
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image,
+                            size: 18,
+                            color: _signatureMode == SignatureMode.upload
+                                ? Colors.white
+                                : const Color(0xFF94a3b8),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Upload Image',
+                            style: TextStyle(
+                              color: _signatureMode == SignatureMode.upload
+                                  ? Colors.white
+                                  : const Color(0xFF94a3b8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _signatureMode = SignatureMode.typed),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _signatureMode == SignatureMode.typed
+                          ? const Color(0xFF3b82f6)
+                          : const Color(0xFF1e293b),
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(8),
+                      ),
+                      border: Border.all(
+                        color: _signatureMode == SignatureMode.typed
+                            ? const Color(0xFF3b82f6)
+                            : const Color(0xFF475569),
+                      ),
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.edit,
+                            size: 18,
+                            color: _signatureMode == SignatureMode.typed
+                                ? Colors.white
+                                : const Color(0xFF94a3b8),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Type Signature',
+                            style: TextStyle(
+                              color: _signatureMode == SignatureMode.typed
+                                  ? Colors.white
+                                  : const Color(0xFF94a3b8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Signature content based on mode
+          if (_signatureMode == SignatureMode.upload) ...[
+            if (_signatureImage != null)
+              Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF475569)),
+                    ),
+                    child: Image.file(
+                      _signatureImage!,
+                      height: 60,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: InkWell(
+                      onTap: _removeSignature,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              InkWell(
+                onTap: _pickSignatureImage,
+                child: Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF475569)),
+                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFF1e293b),
+                  ),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.gesture,
+                          size: 32,
+                          color: Color(0xFF3b82f6),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Upload Signature Image',
+                          style: TextStyle(color: Color(0xFF3b82f6)),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Will be cropped to 6:1 aspect ratio',
+                          style: TextStyle(
+                            color: Color(0xFF64748b),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ] else ...[
+            // Typed signature mode
+            _buildTextField(
+              label: 'Your Name',
+              controller: _signatureTextController,
+              hint: 'e.g. John Smith',
+            ),
+            const SizedBox(height: 16),
+
+            // Live preview
+            if (_signatureTextController.text.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF475569)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Preview:',
+                      style: TextStyle(
+                        color: Color(0xFF64748b),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _signatureTextController.text,
+                      style: TextStyle(
+                        fontFamily: _selectedFont,
+                        fontSize: 36,
+                        color: const Color(0xFF1e293b),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+
+            // Generate button
+            ElevatedButton.icon(
+              onPressed: _signatureTextController.text.isNotEmpty && _callsignController.text.isNotEmpty
+                  ? _generateTypedSignature
+                  : null,
+              icon: const Icon(Icons.auto_fix_high),
+              label: const Text('Generate Signature'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3b82f6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+
+            // Show generated signature
+            if (_signatureImage != null) ...[
+              const SizedBox(height: 16),
+              Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF22c55e), width: 2),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Color(0xFF22c55e), size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Signature Generated',
+                              style: TextStyle(
+                                color: Color(0xFF22c55e),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Image.file(
+                          _signatureImage!,
+                          height: 60,
+                          fit: BoxFit.contain,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: InkWell(
+                      onTap: _removeSignature,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+
           const SizedBox(height: 24),
 
           // Preview hint

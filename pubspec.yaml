@@ -19,6 +19,7 @@ dependencies:
   # Image handling
   image_picker: ^1.1.2
   image: ^4.5.3
+  image_cropper: ^8.0.2
 
   # File operations
   file_picker: ^8.1.7
@@ -40,7 +41,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Assets will be added when background/template images are available
-  # assets:
-  #   - assets/backgrounds/
-  #   - assets/templates/
+  assets:
+    - assets/fonts/
+
+  fonts:
+    - family: DancingScript
+      fonts:
+        - asset: assets/fonts/DancingScript-Regular.ttf
+        - asset: assets/fonts/DancingScript-Bold.ttf
+          weight: 700

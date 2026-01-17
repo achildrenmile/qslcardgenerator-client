@@ -27,11 +27,20 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
 
   // Form controllers
   final _callsignController = TextEditingController();
-  final _dateTimeController = TextEditingController();
+  final _dateController = TextEditingController();
+  final _timeController = TextEditingController();
   final _frequencyController = TextEditingController();
+  final _bandController = TextEditingController();
   final _modeController = TextEditingController();
-  final _rstController = TextEditingController();
-  final _additionalController = TextEditingController();
+  final _rstSentController = TextEditingController();
+  final _rstRcvdController = TextEditingController();
+  final _powerController = TextEditingController();
+  final _remarksController = TextEditingController();
+
+  // Checkbox states
+  bool _twoWay = true;
+  bool _pseQsl = false;
+  bool _tnxQsl = true;
 
   // State
   CardConfig? _activeConfig;
@@ -40,6 +49,8 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   File? _selectedBackground;
   ui.Image? _backgroundImage;
   ui.Image? _templateImage;
+  ui.Image? _logoImage;
+  ui.Image? _signatureImage;
   bool _isLoading = true;
 
   @override
@@ -51,8 +62,10 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   Future<void> _initializeData() async {
     // Set current UTC time
     final now = DateTime.now().toUtc();
-    _dateTimeController.text = _formatDateTime(now);
-    _additionalController.text = 'Thanks for the QSO\nBest regards';
+    _dateController.text = _formatDate(now);
+    _timeController.text = _formatTime(now);
+    _rstSentController.text = '59';
+    _remarksController.text = 'Thanks for the QSO! 73';
 
     // Load backgrounds
     _backgrounds = await widget.storageService.getBackgrounds();
@@ -70,9 +83,11 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       ),
     );
 
-    // Load template image for this config
+    // Load images for this config
     if (_activeConfig != null) {
       await _loadTemplateImage();
+      await _loadLogoImage();
+      await _loadSignatureImage();
     }
 
     // Load first background by default if available
@@ -97,29 +112,82 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     }
   }
 
-  String _formatDateTime(DateTime dt) {
-    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  Future<void> _loadLogoImage() async {
+    if (_activeConfig == null) return;
+
+    final logoFile = await widget.storageService.getLogo(_activeConfig!.callsign);
+    if (logoFile != null) {
+      try {
+        final image = await _exportService.loadImage(logoFile);
+        setState(() {
+          _logoImage = image;
+        });
+      } catch (e) {
+        // Invalid logo file - delete it and continue
+        debugPrint('Invalid logo file, removing: $e');
+        await widget.storageService.deleteLogo(_activeConfig!.callsign);
+      }
+    }
+  }
+
+  Future<void> _loadSignatureImage() async {
+    if (_activeConfig == null) return;
+
+    final sigFile = await widget.storageService.getSignature(_activeConfig!.callsign);
+    if (sigFile != null) {
+      try {
+        final image = await _exportService.loadImage(sigFile);
+        setState(() {
+          _signatureImage = image;
+        });
+      } catch (e) {
+        // Invalid signature file - delete it and continue
+        debugPrint('Invalid signature file, removing: $e');
+        await widget.storageService.deleteSignature(_activeConfig!.callsign);
+      }
+    }
+  }
+
+  Future<void> _pickLogoImage() async {
+    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (result != null && _activeConfig != null) {
+      final file = File(result.path);
+      await widget.storageService.saveLogo(file, _activeConfig!.callsign);
+      await _loadLogoImage();
+    }
+  }
+
+  Future<void> _pickSignatureImage() async {
+    final result = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (result != null && _activeConfig != null) {
+      final file = File(result.path);
+      await widget.storageService.saveSignature(file, _activeConfig!.callsign);
+      await _loadSignatureImage();
+    }
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+  }
+
+  String _formatTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   void _updateQsoData() {
-    final additionalLines = _additionalController.text.split('\n');
-    // Parse the date/time string
+    // Parse date and time
     DateTime? parsedDateTime;
     try {
-      final parts = _dateTimeController.text.split(' ');
-      if (parts.length == 2) {
-        final dateParts = parts[0].split('.');
-        final timeParts = parts[1].split(':');
-        if (dateParts.length == 3 && timeParts.length == 2) {
-          parsedDateTime = DateTime.utc(
-            int.parse(dateParts[2]), // year
-            int.parse(dateParts[1]), // month
-            int.parse(dateParts[0]), // day
-            int.parse(timeParts[0]), // hour
-            int.parse(timeParts[1]), // minute
-          );
-        }
+      final dateParts = _dateController.text.split('.');
+      final timeParts = _timeController.text.split(':');
+      if (dateParts.length == 3 && timeParts.length == 2) {
+        parsedDateTime = DateTime.utc(
+          int.parse(dateParts[2]), // year
+          int.parse(dateParts[1]), // month
+          int.parse(dateParts[0]), // day
+          int.parse(timeParts[0]), // hour
+          int.parse(timeParts[1]), // minute
+        );
       }
     } catch (_) {
       // Keep existing date if parsing fails
@@ -130,10 +198,15 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
         contactCallsign: _callsignController.text,
         utcDateTime: parsedDateTime,
         frequency: _frequencyController.text,
+        band: _bandController.text,
         mode: _modeController.text,
-        rst: _rstController.text,
-        additionalLine1: additionalLines.isNotEmpty ? additionalLines[0] : '',
-        additionalLine2: additionalLines.length > 1 ? additionalLines[1] : '',
+        rstSent: _rstSentController.text,
+        rstRcvd: _rstRcvdController.text,
+        power: _powerController.text,
+        twoWay: _twoWay,
+        pseQsl: _pseQsl,
+        tnxQsl: _tnxQsl,
+        remarks: _remarksController.text,
       );
     });
   }
@@ -184,6 +257,8 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     final file = await _exportService.exportCard(
       backgroundImage: _backgroundImage,
       templateImage: _templateImage,
+      logoImage: _logoImage,
+      signatureImage: _signatureImage,
       qsoData: _qsoData,
       cardConfig: _activeConfig!,
       width: width,
@@ -204,11 +279,15 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   @override
   void dispose() {
     _callsignController.dispose();
-    _dateTimeController.dispose();
+    _dateController.dispose();
+    _timeController.dispose();
     _frequencyController.dispose();
+    _bandController.dispose();
     _modeController.dispose();
-    _rstController.dispose();
-    _additionalController.dispose();
+    _rstSentController.dispose();
+    _rstRcvdController.dispose();
+    _powerController.dispose();
+    _remarksController.dispose();
     super.dispose();
   }
 
@@ -339,6 +418,8 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 ? QslCardPreview(
                     backgroundImage: _backgroundImage,
                     templateImage: _templateImage,
+                    logoImage: _logoImage,
+                    signatureImage: _signatureImage,
                     qsoData: _qsoData,
                     cardConfig: _activeConfig!,
                   )
@@ -386,7 +467,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Card Details',
+                'QSO Details',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -404,25 +485,53 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Date & Time
-              _buildTextField(
-                label: 'Date & Time (UTC)',
-                controller: _dateTimeController,
-                hint: 'DD.MM.YYYY HH:MM',
-              ),
-              const SizedBox(height: 16),
-
-              // Frequency, Mode, RST row
+              // Date & Time row
               Row(
                 children: [
                   Expanded(
                     child: _buildTextField(
-                      label: 'Frequency',
-                      controller: _frequencyController,
-                      hint: 'MHz',
+                      label: 'Date (UTC)',
+                      controller: _dateController,
+                      hint: 'DD.MM.YYYY',
                     ),
                   ),
                   const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTextField(
+                      label: 'Time (UTC)',
+                      controller: _timeController,
+                      hint: 'HH:MM',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Frequency & Band row
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTextField(
+                      label: 'Frequency (MHz)',
+                      controller: _frequencyController,
+                      hint: 'e.g. 145.500',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTextField(
+                      label: 'Band',
+                      controller: _bandController,
+                      hint: 'e.g. 2m',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Mode & Power row
+              Row(
+                children: [
                   Expanded(
                     child: _buildTextField(
                       label: 'Mode',
@@ -434,8 +543,30 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildTextField(
-                      label: 'RST',
-                      controller: _rstController,
+                      label: 'Power (W)',
+                      controller: _powerController,
+                      hint: 'e.g. 50',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // RST Sent & Received row
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTextField(
+                      label: 'RST Sent',
+                      controller: _rstSentController,
+                      hint: 'e.g. 59',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTextField(
+                      label: 'RST Received',
+                      controller: _rstRcvdController,
                       hint: 'e.g. 59',
                     ),
                   ),
@@ -443,52 +574,82 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Additional Remarks
+              // Checkboxes row
+              Row(
+                children: [
+                  _buildCheckbox('2-Way', _twoWay, (v) {
+                    setState(() => _twoWay = v ?? false);
+                    _updateQsoData();
+                  }),
+                  const SizedBox(width: 24),
+                  _buildCheckbox('PSE QSL', _pseQsl, (v) {
+                    setState(() => _pseQsl = v ?? false);
+                    _updateQsoData();
+                  }),
+                  const SizedBox(width: 24),
+                  _buildCheckbox('TNX QSL', _tnxQsl, (v) {
+                    setState(() => _tnxQsl = v ?? false);
+                    _updateQsoData();
+                  }),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Remarks
               _buildTextField(
-                label: 'Additional Remarks',
-                controller: _additionalController,
-                maxLines: 2,
+                label: 'Remarks',
+                controller: _remarksController,
+                hint: 'Thanks for the QSO! 73',
               ),
               const SizedBox(height: 24),
 
               const Divider(color: Color(0xFF475569)),
               const SizedBox(height: 24),
 
-              // Template section
+              // Card Images section
               const Text(
-                'Card Template',
+                'Card Images',
                 style: TextStyle(
-                  color: Color(0xFF94a3b8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
+              const SizedBox(height: 16),
+
+              // Template
+              _buildImageButton(
+                label: 'Card Template',
+                hasImage: _templateImage != null,
+                loadedText: 'Template Loaded',
+                uploadText: 'Upload Template PNG',
                 onPressed: _pickTemplateImage,
-                icon: Icon(
-                  _templateImage != null ? Icons.check_circle : Icons.add_photo_alternate,
-                  color: _templateImage != null ? Colors.green : const Color(0xFF94a3b8),
-                ),
-                label: Text(
-                  _templateImage != null ? 'Template Loaded' : 'Upload Template PNG',
-                  style: TextStyle(
-                    color: _templateImage != null ? Colors.green : const Color(0xFF94a3b8),
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: _templateImage != null ? Colors.green : const Color(0xFF475569),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Logo
+              _buildImageButton(
+                label: 'Station Logo',
+                hasImage: _logoImage != null,
+                loadedText: 'Logo Loaded',
+                uploadText: 'Upload Logo Image',
+                onPressed: _pickLogoImage,
+              ),
+              const SizedBox(height: 12),
+
+              // Signature
+              _buildImageButton(
+                label: 'Signature',
+                hasImage: _signatureImage != null,
+                loadedText: 'Signature Loaded',
+                uploadText: 'Upload Signature Image',
+                onPressed: _pickSignatureImage,
               ),
               const SizedBox(height: 24),
 
               // Background Selection
               const Text(
-                'Background',
+                'BACKGROUND',
                 style: TextStyle(
                   color: Color(0xFF94a3b8),
                   fontSize: 12,
@@ -614,6 +775,75 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
           onChanged: (_) => _updateQsoData(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCheckbox(String label, bool value, ValueChanged<bool?> onChanged) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF3b82f6),
+            side: const BorderSide(color: Color(0xFF94a3b8)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF94a3b8),
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImageButton({
+    required String label,
+    required bool hasImage,
+    required String loadedText,
+    required String uploadText,
+    required VoidCallback onPressed,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: Color(0xFF94a3b8),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(
+            hasImage ? Icons.check_circle : Icons.add_photo_alternate,
+            color: hasImage ? Colors.green : const Color(0xFF94a3b8),
+          ),
+          label: Text(
+            hasImage ? loadedText : uploadText,
+            style: TextStyle(
+              color: hasImage ? Colors.green : const Color(0xFF94a3b8),
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(
+              color: hasImage ? Colors.green : const Color(0xFF475569),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
         ),
       ],
     );

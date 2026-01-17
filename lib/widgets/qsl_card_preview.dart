@@ -6,6 +6,8 @@ import 'qsl_card_painter.dart';
 class QslCardPreview extends StatelessWidget {
   final ui.Image? backgroundImage;
   final ui.Image? templateImage;
+  final ui.Image? logoImage;
+  final ui.Image? signatureImage;
   final QsoData qsoData;
   final CardConfig cardConfig;
   final double scaleFactor;
@@ -14,6 +16,8 @@ class QslCardPreview extends StatelessWidget {
     super.key,
     this.backgroundImage,
     this.templateImage,
+    this.logoImage,
+    this.signatureImage,
     required this.qsoData,
     required this.cardConfig,
     this.scaleFactor = 0.4,
@@ -43,6 +47,8 @@ class QslCardPreview extends StatelessWidget {
             painter: QslCardPainter(
               backgroundImage: backgroundImage,
               templateImage: templateImage,
+              logoImage: logoImage,
+              signatureImage: signatureImage,
               qsoData: qsoData,
               cardConfig: cardConfig,
               scaleFactor: scaleFactor,

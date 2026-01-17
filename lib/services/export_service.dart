@@ -11,6 +11,8 @@ class ExportService {
   Future<File?> exportCard({
     required ui.Image? backgroundImage,
     required ui.Image? templateImage,
+    ui.Image? logoImage,
+    ui.Image? signatureImage,
     required QsoData qsoData,
     required CardConfig cardConfig,
     required int width,
@@ -25,6 +27,8 @@ class ExportService {
     final painter = QslCardPainter(
       backgroundImage: backgroundImage,
       templateImage: templateImage,
+      logoImage: logoImage,
+      signatureImage: signatureImage,
       qsoData: qsoData,
       cardConfig: cardConfig,
       scaleFactor: 1.0,
