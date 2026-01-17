@@ -1747,31 +1747,39 @@ class _SignatureEditorDialogState extends State<_SignatureEditorDialog> {
     final result = await widget.imagePicker.pickImage(source: ImageSource.gallery);
     if (result == null) return;
 
-    // Crop with 6:1 aspect ratio
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: result.path,
-      aspectRatio: const CropAspectRatio(ratioX: 6, ratioY: 1),
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Signature',
-          toolbarColor: const Color(0xFF0f172a),
-          toolbarWidgetColor: Colors.white,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: true,
-          hideBottomControls: false,
-          activeControlsWidgetColor: const Color(0xFF3b82f6),
-        ),
-        IOSUiSettings(
-          title: 'Crop Signature',
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-        ),
-      ],
-    );
+    // image_cropper only works on Android, iOS, and Web - not on desktop
+    if (Platform.isAndroid || Platform.isIOS) {
+      // Crop with 6:1 aspect ratio on mobile
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: result.path,
+        aspectRatio: const CropAspectRatio(ratioX: 6, ratioY: 1),
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Signature',
+            toolbarColor: const Color(0xFF0f172a),
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+            activeControlsWidgetColor: const Color(0xFF3b82f6),
+          ),
+          IOSUiSettings(
+            title: 'Crop Signature',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
 
-    if (croppedFile != null) {
+      if (croppedFile != null) {
+        setState(() {
+          _previewImage = File(croppedFile.path);
+        });
+      }
+    } else {
+      // On desktop, use the image directly without cropping
       setState(() {
-        _previewImage = File(croppedFile.path);
+        _previewImage = File(result.path);
       });
     }
   }
