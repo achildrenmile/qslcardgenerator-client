@@ -328,4 +328,44 @@ class StorageService {
     }
     return null;
   }
+
+  // Migrate all files from old callsign to new callsign
+  Future<void> migrateCallsign(String oldCallsign, String newCallsign) async {
+    final oldLower = oldCallsign.toLowerCase();
+    final newLower = newCallsign.toLowerCase();
+
+    // Migrate template
+    final template = await getTemplate(oldCallsign);
+    if (template != null) {
+      final ext = template.path.split('.').last;
+      final newPath = '${_templatesDir.path}/$newLower.$ext';
+      await template.rename(newPath);
+    }
+
+    // Migrate logo
+    final logo = await getLogo(oldCallsign);
+    if (logo != null) {
+      final ext = logo.path.split('.').last;
+      final newPath = '${_logosDir.path}/$newLower.$ext';
+      await logo.rename(newPath);
+    }
+
+    // Migrate signature
+    final signature = await getSignature(oldCallsign);
+    if (signature != null) {
+      final ext = signature.path.split('.').last;
+      final newPath = '${_signaturesDir.path}/$newLower.$ext';
+      await signature.rename(newPath);
+    }
+
+    // Migrate additional logos
+    final additionalLogos = await getAdditionalLogos(oldCallsign);
+    for (final addLogo in additionalLogos) {
+      final fileName = addLogo.path.split('/').last;
+      final ext = fileName.split('.').last;
+      final num = _extractLogoNumber(addLogo.path);
+      final newPath = '${_additionalLogosDir.path}/${newLower}_$num.$ext';
+      await addLogo.rename(newPath);
+    }
+  }
 }

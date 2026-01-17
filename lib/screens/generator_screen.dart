@@ -57,6 +57,8 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   ui.Image? _signatureImage;
   List<ui.Image> _additionalLogos = [];
   bool _isLoading = true;
+  bool _isUpdating = false;
+  String _updateMessage = '';
 
   @override
   void initState() {
@@ -301,7 +303,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     Color currentColor = Color(_activeConfig!.callsignColor);
     Color pickedColor = currentColor;
 
-    await showDialog(
+    final selectedColor = await showDialog<Color>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Callsign Color'),
@@ -319,24 +321,36 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // Update config with new color
-              final updatedConfig = _activeConfig!.copyWith(
-                callsignColor: pickedColor.value,
-              );
-              await widget.storageService.updateConfig(updatedConfig);
-              setState(() {
-                _activeConfig = updatedConfig;
-              });
-              // Regenerate template with new color
-              await _regenerateTemplate(pickedColor);
-            },
+            onPressed: () => Navigator.pop(context, pickedColor),
             child: const Text('Apply'),
           ),
         ],
       ),
     );
+
+    if (selectedColor != null && selectedColor.value != currentColor.value) {
+      setState(() {
+        _isUpdating = true;
+        _updateMessage = 'Updating callsign color...';
+      });
+
+      try {
+        final updatedConfig = _activeConfig!.copyWith(
+          callsignColor: selectedColor.value,
+        );
+        await widget.storageService.updateConfig(updatedConfig);
+        setState(() {
+          _activeConfig = updatedConfig;
+          _updateMessage = 'Regenerating template...';
+        });
+        await _regenerateTemplate(selectedColor);
+      } finally {
+        setState(() {
+          _isUpdating = false;
+          _updateMessage = '';
+        });
+      }
+    }
   }
 
   Future<void> _regenerateTemplate(Color callsignColor) async {
@@ -443,25 +457,38 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     );
 
     if (result == true) {
-      final newOperatorInfo = OperatorInfo(
-        operatorName: nameController.text,
-        street: streetController.text,
-        city: cityController.text,
-        country: countryController.text,
-        locator: locatorController.text.toUpperCase(),
-        email: emailController.text,
-      );
-
-      final updatedConfig = _activeConfig!.copyWith(
-        operatorInfo: newOperatorInfo,
-      );
-      await widget.storageService.updateConfig(updatedConfig);
       setState(() {
-        _activeConfig = updatedConfig;
+        _isUpdating = true;
+        _updateMessage = 'Updating station info...';
       });
 
-      // Regenerate template with updated info
-      await _regenerateTemplate(Color(_activeConfig!.callsignColor));
+      try {
+        final newOperatorInfo = OperatorInfo(
+          operatorName: nameController.text,
+          street: streetController.text,
+          city: cityController.text,
+          country: countryController.text,
+          locator: locatorController.text.toUpperCase(),
+          email: emailController.text,
+        );
+
+        final updatedConfig = _activeConfig!.copyWith(
+          operatorInfo: newOperatorInfo,
+        );
+        await widget.storageService.updateConfig(updatedConfig);
+        setState(() {
+          _activeConfig = updatedConfig;
+          _updateMessage = 'Regenerating template...';
+        });
+
+        // Regenerate template with updated info
+        await _regenerateTemplate(Color(_activeConfig!.callsignColor));
+      } finally {
+        setState(() {
+          _isUpdating = false;
+          _updateMessage = '';
+        });
+      }
     }
 
     nameController.dispose();
@@ -470,6 +497,113 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     countryController.dispose();
     locatorController.dispose();
     emailController.dispose();
+  }
+
+  Future<void> _showEditCallsign() async {
+    if (_activeConfig == null) return;
+
+    final callsignController = TextEditingController(text: _activeConfig!.callsign);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Callsign'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFfef3c7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFf59e0b)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Color(0xFFd97706), size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Changing callsign will update all card templates and stored images.',
+                      style: TextStyle(color: Color(0xFFd97706), fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: callsignController,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Callsign',
+                hintText: 'e.g. OE8YML',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final newCallsign = callsignController.text.toUpperCase().trim();
+              if (newCallsign.isNotEmpty) {
+                Navigator.pop(context, newCallsign);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    callsignController.dispose();
+
+    if (result != null && result != _activeConfig!.callsign) {
+      setState(() {
+        _isUpdating = true;
+        _updateMessage = 'Updating callsign...';
+      });
+
+      try {
+        final oldCallsign = _activeConfig!.callsign;
+        final newCallsign = result;
+
+        // Migrate stored files to new callsign
+        setState(() => _updateMessage = 'Migrating files...');
+        await widget.storageService.migrateCallsign(oldCallsign, newCallsign);
+
+        // Update config with new callsign
+        final updatedConfig = _activeConfig!.copyWith(
+          callsign: newCallsign,
+        );
+        await widget.storageService.updateConfig(updatedConfig);
+        setState(() {
+          _activeConfig = updatedConfig;
+          _updateMessage = 'Regenerating template...';
+        });
+
+        // Regenerate template with new callsign
+        await _regenerateTemplate(Color(_activeConfig!.callsignColor));
+
+        // Reload images
+        setState(() => _updateMessage = 'Reloading images...');
+        await _loadTemplateImage();
+        await _loadLogoImage();
+        await _loadSignatureImage();
+        await _loadAdditionalLogos();
+      } finally {
+        setState(() {
+          _isUpdating = false;
+          _updateMessage = '';
+        });
+      }
+    }
   }
 
   Future<void> _showSignatureEditor() async {
@@ -575,9 +709,11 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('QSL Card Generator - ${_activeConfig?.callsign ?? ""}'),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: Text('QSL Card Generator - ${_activeConfig?.callsign ?? ""}'),
         backgroundColor: const Color(0xFF1e293b),
         foregroundColor: Colors.white,
         actions: [
@@ -652,6 +788,38 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
           },
         ),
       ),
+        ),
+        // Loading overlay
+        if (_isUpdating)
+          Container(
+            color: Colors.black54,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1e293b),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Color(0xFF3b82f6)),
+                    const SizedBox(height: 16),
+                    Text(
+                      _updateMessage,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        decoration: TextDecoration.none,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -881,6 +1049,50 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
               const SizedBox(height: 24),
 
               const Divider(color: Color(0xFF475569)),
+              const SizedBox(height: 24),
+
+              // Callsign section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'My Callsign',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _showEditCallsign,
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Change'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF3b82f6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Display current callsign
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0f172a),
+                  border: Border.all(color: const Color(0xFF475569)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _activeConfig?.callsign ?? '',
+                  style: TextStyle(
+                    color: Color(_activeConfig?.callsignColor ?? CardConfig.defaultCallsignColor),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
 
               // Station Info section
