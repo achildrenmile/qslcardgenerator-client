@@ -2,12 +2,41 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../models/models.dart';
 import '../widgets/qsl_card_painter.dart';
 
 class ExportService {
+  /// Get the QSL cards export directory
+  Future<Directory> getExportDirectory() async {
+    final docsDir = await getApplicationDocumentsDirectory();
+    final exportDir = Directory('${docsDir.path}/QSL Cards');
+    if (!await exportDir.exists()) {
+      await exportDir.create(recursive: true);
+    }
+    return exportDir;
+  }
+
+  /// Generate a unique filename for the callsign
+  /// If OE8CDC.png exists, returns OE8CDC(1).png, OE8CDC(2).png, etc.
+  Future<String> _getUniqueFilePath(Directory dir, String callsign) async {
+    final baseCallsign = callsign.toUpperCase();
+    var filePath = '${dir.path}/$baseCallsign.png';
+
+    if (!await File(filePath).exists()) {
+      return filePath;
+    }
+
+    // Find next available number
+    int counter = 1;
+    while (await File('${dir.path}/$baseCallsign($counter).png').exists()) {
+      counter++;
+    }
+
+    return '${dir.path}/$baseCallsign($counter).png';
+  }
+
   /// Export QSL card as PNG image
+  /// Automatically saves to Documents/QSL Cards folder with callsign as filename
   Future<File?> exportCard({
     required ui.Image? backgroundImage,
     required ui.Image? templateImage,
@@ -18,7 +47,6 @@ class ExportService {
     required CardConfig cardConfig,
     required int width,
     required int height,
-    String? suggestedFileName,
   }) async {
     // Create a picture recorder
     final recorder = ui.PictureRecorder();
@@ -49,27 +77,9 @@ class ExportService {
 
     final pngBytes = byteData.buffer.asUint8List();
 
-    // Get save location from user
-    final fileName =
-        suggestedFileName ?? '${qsoData.contactCallsign.toUpperCase()}.png';
-
-    String? outputPath;
-
-    if (Platform.isAndroid || Platform.isIOS) {
-      // On mobile, save to downloads or documents
-      final directory = await getApplicationDocumentsDirectory();
-      outputPath = '${directory.path}/$fileName';
-    } else {
-      // On desktop, show save dialog
-      outputPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save QSL Card',
-        fileName: fileName,
-        type: FileType.image,
-        allowedExtensions: ['png'],
-      );
-    }
-
-    if (outputPath == null) return null;
+    // Get export directory and unique filename
+    final exportDir = await getExportDirectory();
+    final outputPath = await _getUniqueFilePath(exportDir, qsoData.contactCallsign);
 
     // Write file
     final file = File(outputPath);

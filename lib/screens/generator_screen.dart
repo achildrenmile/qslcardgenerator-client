@@ -659,34 +659,80 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   Future<void> _exportCard() async {
     if (_activeConfig == null) return;
 
-    final callsign = _callsignController.text.isEmpty
-        ? 'QSL'
-        : _callsignController.text.toUpperCase();
+    // Show loading overlay
+    setState(() {
+      _isUpdating = true;
+      _updateMessage = 'Exporting QSL card...';
+    });
 
-    // High resolution export (matches web version)
-    const width = 4961;
-    const height = 3189;
+    try {
+      // High resolution export (matches web version)
+      const width = 4961;
+      const height = 3189;
 
-    final file = await _exportService.exportCard(
-      backgroundImage: _backgroundImage,
-      templateImage: _templateImage,
-      logoImage: _logoImage,
-      signatureImage: _signatureImage,
-      additionalLogos: _additionalLogos,
-      qsoData: _qsoData,
-      cardConfig: _activeConfig!,
-      width: width,
-      height: height,
-      suggestedFileName: '$callsign.png',
-    );
-
-    if (file != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('QSL card saved: ${file.path}'),
-          backgroundColor: Colors.green,
-        ),
+      final file = await _exportService.exportCard(
+        backgroundImage: _backgroundImage,
+        templateImage: _templateImage,
+        logoImage: _logoImage,
+        signatureImage: _signatureImage,
+        additionalLogos: _additionalLogos,
+        qsoData: _qsoData,
+        cardConfig: _activeConfig!,
+        width: width,
+        height: height,
       );
+
+      if (file != null && mounted) {
+        final fileName = file.path.split(Platform.pathSeparator).last;
+        final folderPath = file.parent.path;
+
+        // Hide loading overlay
+        setState(() {
+          _isUpdating = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved: $fileName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // Open the folder containing the saved file
+        await _openFolder(folderPath);
+      } else {
+        setState(() {
+          _isUpdating = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isUpdating = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openFolder(String folderPath) async {
+    try {
+      if (Platform.isLinux) {
+        await Process.run('xdg-open', [folderPath]);
+      } else if (Platform.isWindows) {
+        await Process.run('explorer', [folderPath]);
+      } else if (Platform.isMacOS) {
+        await Process.run('open', [folderPath]);
+      }
+      // On mobile platforms, we don't open the folder
+    } catch (e) {
+      debugPrint('Could not open folder: $e');
     }
   }
 
