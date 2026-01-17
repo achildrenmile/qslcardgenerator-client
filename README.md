@@ -2,6 +2,20 @@
 
 Cross-platform offline QSL card generator for amateur radio operators.
 
+## Screenshots
+
+### Main Generator Screen
+![Main Screen](docs/screenshots/main_screen.png)
+*Real-time QSL card preview with QSO input fields*
+
+### Setup Wizard
+![Setup Wizard](docs/screenshots/setup_wizard.png)
+*First-time configuration wizard for your station*
+
+### Exported QSL Card
+![Exported Card](docs/screenshots/exported_card.png)
+*Example of an exported high-resolution QSL card*
+
 ## Features
 
 - **Offline Operation** - No internet connection required
