@@ -18,13 +18,14 @@ Cross-platform offline QSL card generator for amateur radio operators.
 - **Callsign Color** - Customize your callsign color
 - **Auto-Save Export** - Cards saved with callsign filename (e.g., `OE8CDC.png`)
 - **Smart Duplicates** - Automatic numbering for multiple QSOs (`OE8CDC(1).png`, `OE8CDC(2).png`)
-- **Quick Access** - Folder opens automatically after export
+- **Mobile Gallery Save** - Cards saved directly to Photos app on Android/iOS
+- **Quick Access** - Folder opens automatically after export (desktop)
 - **High-Resolution Export** - Print-ready 300 DPI PNG output
 - **Setup Wizard** - Easy first-time configuration
 
 ## Beta Status
 
-**Current version: v1.0.0-beta.5**
+**Current version: v1.0.0-beta.7**
 
 | Platform | Status |
 |----------|--------|
