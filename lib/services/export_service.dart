@@ -45,6 +45,7 @@ class ExportService {
     final result = await SaverGallery.saveImage(
       pngBytes,
       fileName: fileName,
+      skipIfExists: false,
     );
 
     if (result.isSuccess) {
