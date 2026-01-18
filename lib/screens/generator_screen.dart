@@ -670,7 +670,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
       const width = 4961;
       const height = 3189;
 
-      final file = await _exportService.exportCard(
+      final result = await _exportService.exportCard(
         backgroundImage: _backgroundImage,
         templateImage: _templateImage,
         logoImage: _logoImage,
@@ -682,29 +682,43 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
         height: height,
       );
 
-      if (file != null && mounted) {
-        final fileName = file.path.split(Platform.pathSeparator).last;
-        final folderPath = file.parent.path;
+      // Hide loading overlay
+      setState(() {
+        _isUpdating = false;
+      });
 
-        // Hide loading overlay
-        setState(() {
-          _isUpdating = false;
-        });
+      if (result.success && mounted) {
+        if (result.savedToGallery) {
+          // Mobile: saved to Photos/Gallery
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Saved to Photos: ${result.fileName}'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        } else if (result.file != null) {
+          // Desktop: saved to Documents/QSL Cards
+          final folderPath = result.file!.parent.path;
 
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Saved: ${result.fileName}'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+
+          // Open the folder containing the saved file
+          await _openFolder(folderPath);
+        }
+      } else if (!result.success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved: $fileName'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
+          const SnackBar(
+            content: Text('Export failed'),
+            backgroundColor: Colors.red,
           ),
         );
-
-        // Open the folder containing the saved file
-        await _openFolder(folderPath);
-      } else {
-        setState(() {
-          _isUpdating = false;
-        });
       }
     } catch (e) {
       setState(() {

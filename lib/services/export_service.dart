@@ -1,13 +1,15 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:saver_gallery/saver_gallery.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/models.dart';
 import '../widgets/qsl_card_painter.dart';
 
 class ExportService {
-  /// Get the QSL cards export directory
+  /// Get the QSL cards export directory (for desktop platforms)
   Future<Directory> getExportDirectory() async {
     final docsDir = await getApplicationDocumentsDirectory();
     final exportDir = Directory(p.join(docsDir.path, 'QSL Cards'));
@@ -36,9 +38,26 @@ class ExportService {
     return p.join(dir.path, '$baseCallsign($counter).png');
   }
 
+  /// Save image to device gallery (Android/iOS)
+  Future<String?> _saveToGallery(Uint8List pngBytes, String callsign) async {
+    final fileName = '${callsign.toUpperCase()}_${DateTime.now().millisecondsSinceEpoch}.png';
+
+    final result = await SaverGallery.saveImage(
+      pngBytes,
+      fileName: fileName,
+      skipIfExists: false,
+    );
+
+    if (result.isSuccess) {
+      return fileName;
+    }
+    return null;
+  }
+
   /// Export QSL card as PNG image
-  /// Automatically saves to Documents/QSL Cards folder with callsign as filename
-  Future<File?> exportCard({
+  /// - On mobile (Android/iOS): Saves to Photos/Gallery
+  /// - On desktop (Windows/Linux/macOS): Saves to Documents/QSL Cards folder
+  Future<ExportResult> exportCard({
     required ui.Image? backgroundImage,
     required ui.Image? templateImage,
     ui.Image? logoImage,
@@ -74,19 +93,37 @@ class ExportService {
 
     // Convert to PNG bytes
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData == null) return null;
+    if (byteData == null) return ExportResult(success: false);
 
     final pngBytes = byteData.buffer.asUint8List();
 
-    // Get export directory and unique filename
-    final exportDir = await getExportDirectory();
-    final outputPath = await _getUniqueFilePath(exportDir, qsoData.contactCallsign);
+    // Save based on platform
+    if (Platform.isAndroid || Platform.isIOS) {
+      // Save to gallery on mobile
+      final galleryPath = await _saveToGallery(pngBytes, qsoData.contactCallsign);
+      if (galleryPath != null) {
+        return ExportResult(
+          success: true,
+          fileName: '${qsoData.contactCallsign.toUpperCase()}.png',
+          savedToGallery: true,
+        );
+      }
+      return ExportResult(success: false);
+    } else {
+      // Save to Documents/QSL Cards on desktop
+      final exportDir = await getExportDirectory();
+      final outputPath = await _getUniqueFilePath(exportDir, qsoData.contactCallsign);
 
-    // Write file
-    final file = File(outputPath);
-    await file.writeAsBytes(pngBytes);
+      final file = File(outputPath);
+      await file.writeAsBytes(pngBytes);
 
-    return file;
+      return ExportResult(
+        success: true,
+        file: file,
+        fileName: p.basename(outputPath),
+        savedToGallery: false,
+      );
+    }
   }
 
   /// Load an image from file
@@ -108,4 +145,19 @@ class ExportService {
     final frame = await codec.getNextFrame();
     return frame.image;
   }
+}
+
+/// Result of an export operation
+class ExportResult {
+  final bool success;
+  final File? file;
+  final String? fileName;
+  final bool savedToGallery;
+
+  ExportResult({
+    required this.success,
+    this.file,
+    this.fileName,
+    this.savedToGallery = false,
+  });
 }
